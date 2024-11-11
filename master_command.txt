@@ -1,0 +1,23 @@
+//cara running
+npm install
+npx sequelize-cli db:migrate:undo:all
+npx sequelize-cli db:migrate
+npx sequelize-cli db:seed:all
+npm start
+
+//tambahan
+npx sequelize-cli seed:generate --name demo-user
+npx sequelize-cli db:seed --seed <name_of_seeder_file>
+
+//kalo mau generate data ulang beserta seednya
+npx sequelize-cli db:migrate:undo:all
+npx sequelize-cli db:migrate
+npx sequelize-cli db:seed:all
+
+//Backup hard delete
+if (err.name === 'SequelizeForeignKeyConstraintError') {
+    res.status(400).json(response(400, 'Data tidak bisa dihapus karena masih digunakan pada tabel lain'));
+} else {
+    res.status(500).json(response(500, 'Internal server error', err));
+    console.log(err);
+}
