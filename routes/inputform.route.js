@@ -11,7 +11,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage, limits: { fileSize: 2 * 1024 * 1024 }  });
 
 route.post('/user/input/answer/create/:idpackage', [mid.checkRolesAndLogout(['User', 'Super Admin'])], upload.any(), questionformInput.inputFormQuestion);
-route.get('/user/input/form/detail/:idlayanannum', [mid.checkRolesAndLogout(['User', 'Super Admin'])], questionformInput.getDetailInputForm);
-route.put('/user/input/form/file/:idlayanannum', [mid.checkRolesAndLogout(['Super Admin'])], upload.fields([{ name: 'file', maxCount: 1 }]), questionformInput.uploadFileHasil);
+route.get('/user/input/answer/detail/:idquestionnum', [mid.checkRolesAndLogout(['User', 'Super Admin'])], questionformInput.getDetailInputForm);
+route.put('/user/input/form/file/:idlayanannum', [mid.checkRolesAndLogout(['Super Admin'])], upload.any(), questionformInput.uploadFileHasil);
 
 module.exports = route;
