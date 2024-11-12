@@ -190,7 +190,7 @@ module.exports = {
                     id: packagetryout_id,
                     deletedAt: null
                 },
-                attributes: ['name', 'slug', 'description'],
+                attributes: ['title', 'slug', 'description'],
                 include: [{
                     model: Question_form,
                     attributes: { exclude: ['createdAt', 'updatedAt'] },

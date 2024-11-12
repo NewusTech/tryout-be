@@ -178,7 +178,7 @@ module.exports = {
         //   },
           {
             model: Package_tryout,
-            attributes: ["id", "name", "description"],
+            attributes: ["id", "title", "description"],
             include: [
               {
                 model: Type_package,
@@ -528,7 +528,7 @@ module.exports = {
         totalCount,
         page,
         limit,
-        `/api/user/history/form`
+        `/api/user/history/tryout`
       );
 
       res.status(200).json({
@@ -547,12 +547,12 @@ module.exports = {
     try {
       let Packageformnumget = await Question_form_num.findOne({
         where: {
-          id: req.params.idforminput,
+          id: req.params.idquestion_num,
         },
         include: [
           {
             model: Package_tryout,
-            attributes: { exclude: ["createdAt", "updatedAt", "slug"] },
+            attributes: { exclude: [ "createdAt", "updatedAt", "slug"] },
             include: [
               {
                 model: Type_package,
@@ -581,7 +581,7 @@ module.exports = {
         status: Packageformnumget?.status,
         packagetryout_id: Packageformnumget?.packagetryout_id,
         package_name: Packageformnumget?.Package_tryout
-          ? Packageformnumget?.Package_tryout?.name
+          ? Packageformnumget?.Package_tryout?.title
           : null,
         typepackage_id:
           Packageformnumget?.Package_tryout && Packageformnumget?.Package_tryout?.Type_package
