@@ -23,7 +23,6 @@ module.exports = (sequelize, DataTypes) => {
     skor: DataTypes.STRING,
     tgl_selesai: DataTypes.DATEONLY,
     status: DataTypes.SMALLINT,
-    updated_by: DataTypes.INTEGER
   }, {
     sequelize,
     modelName: 'Question_form_num',
