@@ -450,21 +450,21 @@ module.exports = {
         const { oldPassword, newPassword, confirmNewPassword } = req.body;
 
         if (!oldPassword || !newPassword || !confirmNewPassword) {
-            return res.status(400).json({ message: 'Semua kolom wajib diisi.' });
+            return res.status(400).json({ message: 'Fields are required' });
         }
 
         if (newPassword !== confirmNewPassword) {
-            return res.status(400).json({ message: 'Kata sandi baru tidak cocok.' });
+            return res.status(400).json({ message: 'New password doesn`t match' });
         }
 
         try {
             const user = await User.findOne({ where: { slug } });
             if (!user) {
-                return res.status(404).json({ message: 'Pengguna tidak ditemukan.' });
+                return res.status(404).json({ message: 'User not found' });
             }
 
             if (!passwordHash.verify(oldPassword, user.password)) {
-                return res.status(400).json({ message: 'Kata sandi lama salah.' });
+                return res.status(400).json({ message: 'Old password is incorrect' });
             }
 
             user.password = passwordHash.generate(newPassword);
@@ -482,17 +482,17 @@ module.exports = {
         const { newPassword, confirmNewPassword } = req.body;
 
         if (!newPassword || !confirmNewPassword) {
-            return res.status(400).json({ message: 'Semua kolom wajib diisi.' });
+            return res.status(400).json({ message: 'Fields are required' });
         }
 
         if (newPassword !== confirmNewPassword) {
-            return res.status(400).json({ message: 'Kata sandi baru tidak cocok.' });
+            return res.status(400).json({ message: 'New password doesn`t match' });
         }
 
         try {
             const user = await User.findOne({ where: { slug } });
             if (!user) {
-                return res.status(404).json({ message: 'Pengguna tidak ditemukan.' });
+                return res.status(404).json({ message: 'User not found' });
             }
 
             user.password = passwordHash.generate(newPassword);
@@ -512,7 +512,7 @@ module.exports = {
             const user = await User.findOne({
                 include: [
                     {
-                        model: Userinfo,
+                        model: User_info,
                         attributes: ['email'],
                         where: { email },
                     }
@@ -520,7 +520,7 @@ module.exports = {
             },);
 
             if (!user) {
-                return res.status(404).json({ message: 'Email tidak terdaftar.' });
+                return res.status(404).json({ message: 'Email not registered' });
             }
 
             const token = crypto.randomBytes(20).toString('hex');
@@ -532,13 +532,15 @@ module.exports = {
             await user.save();
 
             const mailOptions = {
-                to: user?.Userinfo?.email,
+                to: user?.User_info?.email,
                 from: process.env.EMAIL_NAME,
-                subject: 'Password Reset',
-                text: `You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n
-                Please click on the following link, or paste this into your browser to complete the process:\n\n
-                ${process.env.WEBSITE_URL}new-password/${token}\n\n
-                If you did not request this, please ignore this email and your password will remain unchanged.\n`
+                subject: 'Reset Password',
+                text: `Halo ${user?.User_info?.name},\n\n
+                Kami menerima permintaan untuk mengatur ulang kata sandi akun Anda.
+                Untuk mengatur ulang kata sandi, silakan klik tautan berikut atau salin dan tempelkan ke browser Anda:\n
+                ${process.env.WEBSITE_URL}/${token}\n\n
+                Jika Anda tidak merasa meminta pengaturan ulang kata sandi ini, abaikan email ini. Kata sandi akun Anda tidak akan berubah.\n\n
+                Terima kasih.`
             };
 
             transporter.sendMail(mailOptions, (err) => {
@@ -560,11 +562,11 @@ module.exports = {
         const { newPassword, confirmNewPassword } = req.body;
 
         if (!newPassword || !confirmNewPassword) {
-            return res.status(400).json({ message: 'Semua kolom wajib diisi.' });
+            return res.status(400).json({ message: 'Fields are required' });
         }
 
         if (newPassword !== confirmNewPassword) {
-            return res.status(400).json({ message: 'Kata sandi baru tidak cocok.' });
+            return res.status(400).json({ message: 'New password doesn`t match' });
         }
 
         try {
@@ -576,7 +578,7 @@ module.exports = {
             });
 
             if (!user) {
-                return res.status(400).json({ message: 'Token reset kata sandi tidak valid atau telah kedaluwarsa.' });
+                return res.status(400).json({ message: 'The password reset token is invalid or has expired' });
             }
 
             user.password = passwordHash.generate(newPassword);
@@ -584,7 +586,7 @@ module.exports = {
             user.resetpasswordexpires = null;
             await user.save();
 
-            return res.status(200).json({ message: 'Password berhasil diganti.' });
+            return res.status(200).json({ message: 'Password successfully changed' });
         } catch (err) {
             console.error(err);
             return res.status(500).json({ message: 'Internal server error.' });
@@ -617,7 +619,7 @@ module.exports = {
         }
     },
 
-    updateUserpermissions: async (req, res) => {
+    updateUserPermissions: async (req, res) => {
         const { userId, permissions } = req.body;
 
         try {
@@ -643,7 +645,7 @@ module.exports = {
             const permissionIds = permissionRecords.map(permission => permission.id);
 
             // Remove old permissions
-            await Userpermission.destroy({
+            await User_permission.destroy({
                 where: { user_id: userId }
             });
 
@@ -653,7 +655,7 @@ module.exports = {
                 permission_id: permissionId
             }));
 
-            await Userpermission.bulkCreate(userPermissions);
+            await User_permission.bulkCreate(userPermissions);
 
             res.status(200).json({ message: 'Permissions updated successfully' });
         } catch (error) {
