@@ -10,6 +10,9 @@ const packagetryoutRoute = require('./packagetryout.route');
 const questionformRoute = require('./questionform.route');
 const inputformRoute = require('./inputform.route');
 const historytryoutRoute = require('./historytryout.route');
+const userfeedbackRoute = require('./userfeedback.route');
+const aboutcompanyRoute = require('./aboutcompany.route');
+const bannerRoute = require('./banner.route');
 
 module.exports = function (app, urlApi) {
     app.use(urlApi, userRoute);
@@ -24,4 +27,7 @@ module.exports = function (app, urlApi) {
     app.use(urlApi, questionformRoute);
     app.use(urlApi, inputformRoute);
     app.use(urlApi, historytryoutRoute);
+    app.use(urlApi, userfeedbackRoute);
+    app.use(urlApi, aboutcompanyRoute);
+    app.use(urlApi, bannerRoute);
 }
