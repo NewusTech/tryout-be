@@ -2,7 +2,7 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('Kotas', {
+    await queryInterface.createTable('Kota', {
       id: {
         allowNull: false,
         autoIncrement: true,
@@ -25,7 +25,7 @@ module.exports = {
       }
     });
 
-    await queryInterface.addConstraint('Kotas', {
+    await queryInterface.addConstraint('Kota', {
       fields: ['provinsi_id'],
       type: 'foreign key',
       name: 'custom_fkey_provinsi_id',
@@ -37,6 +37,6 @@ module.exports = {
 
   },
   async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable('Kotas');
+    await queryInterface.dropTable('Kota');
   }
 };
