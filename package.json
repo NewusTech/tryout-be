@@ -34,6 +34,7 @@
     "password-hash": "^1.2.2",
     "pg": "^8.11.5",
     "pg-hstore": "^2.3.4",
+    "puppeteer": "^23.7.1",
     "sequelize": "^6.37.3",
     "slugify": "^1.6.6",
     "winston": "^3.13.0"
