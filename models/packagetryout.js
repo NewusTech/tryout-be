@@ -6,7 +6,7 @@ module.exports = (sequelize, DataTypes) => {
   class Package_tryout extends Model {
     static associate(models) {
         Package_tryout.hasMany(models.User, {
-            foreignKey: 'packagetryout_id',
+          foreignKey: 'packagetryout_id',
         });
         Package_tryout.belongsTo(models.Type_package, {
             foreignKey: 'typepackage_id',
