@@ -16,10 +16,19 @@ module.exports = {
         type: Sequelize.STRING,
         unique: true
       },
+      typeuser_id: {
+        type: Sequelize.INTEGER
+      },
       role_id: {
         type: Sequelize.INTEGER
       },
       userinfo_id: {
+        type: Sequelize.INTEGER
+      },
+      payment_id: {
+        type: Sequelize.INTEGER
+      },
+      packagetryout_id: {
         type: Sequelize.INTEGER
       },
       resetpasswordtoken: {
@@ -47,6 +56,16 @@ module.exports = {
       name: 'custom_fkey_userinfo_id',
       references: {
         table: 'User_infos',
+        field: 'id'
+      }
+    });
+
+    await queryInterface.addConstraint('Users', {
+      fields: ['packagetryout_id'],
+      type: 'foreign key',
+      name: 'custom_fkey_packagetryout_id',
+      references: {
+        table: 'Package_tryout',
         field: 'id'
       }
     });
