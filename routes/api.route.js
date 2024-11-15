@@ -13,6 +13,9 @@ const historytryoutRoute = require('./historytryout.route');
 const userfeedbackRoute = require('./userfeedback.route');
 const aboutcompanyRoute = require('./aboutcompany.route');
 const bannerRoute = require('./banner.route');
+const scheduleRoute = require('./schedule.route');
+const typeuserRoute = require('./typeuser.route');
+const reportpaymentRoute = require('./reportpayment.route');
 
 module.exports = function (app, urlApi) {
     app.use(urlApi, userRoute);
@@ -30,4 +33,7 @@ module.exports = function (app, urlApi) {
     app.use(urlApi, userfeedbackRoute);
     app.use(urlApi, aboutcompanyRoute);
     app.use(urlApi, bannerRoute);
+    app.use(urlApi, scheduleRoute);
+    app.use(urlApi, typeuserRoute);
+    app.use(urlApi, reportpaymentRoute);
 }
