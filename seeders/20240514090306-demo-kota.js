@@ -2,7 +2,7 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    const Kotas = [
+    const Kota = [
       // Provinsi Aceh (provinsi_id: 1)
       { name: 'Kabupaten Simeulue', provinsi_id: 1, createdAt: new Date(), updatedAt: new Date() },
       { name: 'Kabupaten Aceh Singkil', provinsi_id: 1, createdAt: new Date(), updatedAt: new Date() },
@@ -594,10 +594,10 @@ module.exports = {
       { name: 'Kota Sorong', provinsi_id: 38, createdAt: new Date(), updatedAt: new Date() }
     ];
 
-    await queryInterface.bulkInsert('Kotas', Kotas, {});
+    await queryInterface.bulkInsert('Kota', Kota, {});
   },
 
   down: async (queryInterface, Sequelize) => {
-    await queryInterface.bulkDelete('Kotas', null, {});
+    await queryInterface.bulkDelete('Kota', null, {});
   }
 };
