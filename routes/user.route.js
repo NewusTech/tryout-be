@@ -4,8 +4,12 @@ const mid = require('../middlewares/auth.middleware');
 
 const express = require('express');
 const route = express.Router();
+const multer = require('multer');
 
-route.post('/register', userController.createUser);
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
+route.post('/register', upload.fields([{ name: 'receipt', maxCount: 1 }]),  userController.createUser);
 route.post('/login', userController.loginUser);
 route.post('/logout', [mid.checkRolesAndLogout(['Super Admin', 'User'])], userController.logoutUser); 
 

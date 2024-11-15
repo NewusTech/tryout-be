@@ -1,6 +1,6 @@
 const { response } = require('../helpers/response.formatter');
 
-const { User, Token, Role, User_info, User_permission, Permission, sequelize } = require('../models');
+const { User, Token, Role, User_info, Payment, Package_tryout, User_permission, Permission, sequelize } = require('../models');
 const baseConfig = require('../config/base.config');
 const passwordHash = require('password-hash');
 const jwt = require('jsonwebtoken');
@@ -13,6 +13,8 @@ const crypto = require('crypto');
 const logger = require('../errorHandler/logger');
 const { name } = require('ejs');
 
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+
 const transporter = nodemailer.createTransport({
     service: 'Gmail',
     auth: {
@@ -21,14 +23,22 @@ const transporter = nodemailer.createTransport({
     }
 });
 
+const s3Client = new S3Client({
+    region: process.env.AWS_DEFAULT_REGION,
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
+    useAccelerateEndpoint: true
+});
+
 module.exports = {
 
     //membuat user baru
     createUser: async (req, res) => {
         const transaction = await sequelize.transaction();
-
+    
         try {
-
             // Membuat schema untuk validasi
             const schema = {
                 name: { type: "string", min: 3 },
@@ -36,8 +46,33 @@ module.exports = {
                 telepon: { type: "string", min: 7, max: 15, pattern: /^[0-9]+$/, optional: true },
                 password: { type: "string", min: 5, max: 16 },
                 role_id: { type: "number", optional: true },
+                typeuser_id: { type: "number", optional: true },
+                price: { type: "string", optional: true},
+                receipt: { type: "string", optional: true }
             };
 
+            let receiptKey;
+
+            // Proses upload untuk receipt
+            if (req.files?.receipt) {
+                const timestamp = new Date().getTime();
+                const uniqueFileName = `${timestamp}-${req.files.receipt[0].originalname}`;
+    
+                const uploadParams = {
+                    Bucket: process.env.AWS_BUCKET,
+                    Key: `${process.env.PATH_AWS}/receipt/${uniqueFileName}`,
+                    Body: req.files.receipt[0].buffer,
+                    ACL: 'public-read',
+                    ContentType: req.files.receipt[0].mimetype
+                };
+    
+                const command = new PutObjectCommand(uploadParams);
+    
+                await s3Client.send(command);
+    
+                receiptKey = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
+            }
+    
             // Validasi
             const validate = v.validate({
                 name: req.body.name,
@@ -45,10 +80,13 @@ module.exports = {
                 role_id: req.body.role_id !== undefined ? Number(req.body.role_id) : undefined,
                 email: req.body.email,
                 telepon: req.body.telepon,
+                typeuser_id: req.body.typeuser_id !== undefined ? Number(req.body.typeuser_id) : undefined,
+                price: req.body.price,
+                receipt: receiptKey || null
             }, schema);
 
+    
             if (validate.length > 0) {
-                // Format pesan error dalam bahasa Indonesia
                 const errorMessages = validate.map(error => {
                     if (error.type === 'stringMin') {
                         return `${error.field} minimal ${error.expected} karakter`;
@@ -60,17 +98,17 @@ module.exports = {
                         return `${error.field} tidak valid`;
                     }
                 });
-
+    
                 res.status(400).json({
                     status: 400,
                     message: errorMessages.join(', ')
                 });
                 return;
             }
-
+    
             const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
             const slug = `${req.body.name}-${timestamp}`;
-
+    
             // Membuat object untuk create userinfo
             let userinfoCreateObj = {
                 name: req.body.name,
@@ -79,35 +117,43 @@ module.exports = {
                 alamat: req.body.alamat,
                 slug: slug
             };
-
+    
             // Membuat entri baru di tabel userinfo
-            let userinfoCreate = await User_info.create(userinfoCreateObj);
+            let userinfoCreate = await User_info.create(userinfoCreateObj, { transaction });
 
+            let paymentCreateObj = {
+                price: req.body.price,
+                receipt: receiptKey || null, 
+            };
+
+            // Membuat entri payment di tabel payments
+            let paymentCreate = await Payment.create(paymentCreateObj, { transaction });
+    
             // Membuat object untuk create user
             let userCreateObj = {
                 password: passwordHash.generate(req.body.password),
-                role_id: req.body.role_id !== undefined ? Number(req.body.role_id) : undefined,
+                role_id: req.body.role_id ? Number(req.body.role_id) : undefined,
+                typeuser_id: req.body.typeuser_id ? Number(req.body.typeuser_id) : undefined,
                 userinfo_id: userinfoCreate.id,
+                payment_id: paymentCreate.id,
                 slug: slug
             };
-
+    
             // Membuat user baru
-            let userCreate = await User.create(userCreateObj);
-
+            let userCreate = await User.create(userCreateObj, { transaction });
+    
             // Mengirim response dengan bantuan helper response.formatter
             await transaction.commit();
-            res.status(201).json(response(201, 'user created', userCreate));
-
+            res.status(201).json(response(201, 'user and payment created', { user: userCreate, payment: paymentCreate }));
+    
         } catch (err) {
             await transaction.rollback();
             if (err.name === 'SequelizeUniqueConstraintError') {
-                // Menangani error khusus untuk constraint unik
                 res.status(400).json({
                     status: 400,
                     message: `${err.errors[0].path} sudah terdaftar`
                 });
             } else {
-                // Menangani error lainnya
                 res.status(500).json(response(500, 'terjadi kesalahan pada server', err));
             }
             console.log(err);
@@ -664,5 +710,134 @@ module.exports = {
             console.error('Error updating permissions:', error);
             res.status(500).json({ message: 'Internal server error' });
         }
-    }
+    },
+
+    getReportPayment: async (req, res) => {
+        try {
+            const showDeleted = req.query.showDeleted ?? null;
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 10;
+            const offset = (page - 1) * limit;
+            let userGets;
+            let totalCount;
+
+            const whereCondition = {
+                role_id: 2
+            }
+
+            if (showDeleted !== null) {
+                whereCondition.deletedAt = { [Op.not]: null };
+            } else {
+                whereCondition.deletedAt = null;
+            }
+
+            [userGets, totalCount] = await Promise.all([
+                User.findAll({
+                    include: [
+                        {
+                            model: Payment,
+                            attributes: ['price', 'receipt', 'id'],
+                            as: 'Payment'
+                        },
+                        {
+                            model: User_info,
+                            as: 'User_info',
+                        },
+                    ],
+                    limit: limit,
+                    offset: offset,
+                    attributes: { exclude: ['Payment', 'User_info'] },
+                    order: [['id', 'ASC']],
+                    where: whereCondition,
+                }),
+                User.count({
+                    where: whereCondition
+                })
+            ]);
+
+            let formattedUsers = userGets.map(user => {
+                return {
+                    id: user.id,
+                    slug: user.slug,
+                    name: user.User_info?.name,
+                    email: user.User_info?.email,
+                    payment_id: user.Payment?.id,
+                    price: user.Payment?.price,
+                    receipt: user.Payment?.receipt,
+                    tanggal: user.createdAt,
+                    updatedAt: user.updatedAt
+                };
+            });
+
+            const pagination = generatePagination(totalCount, page, limit, '/api/user/get');
+
+            res.status(200).json({
+                status: 200,
+                message: 'success get',
+                data: formattedUsers,
+                pagination: pagination
+            });
+
+        } catch (err) {
+            res.status(500).json(response(500, 'internal server error', err));
+            console.log(err);
+        }
+    },
+
+    getReportPaymentBySlug: async (req, res) => {
+        try {
+            const showDeleted = req.query.showDeleted ?? null;
+            const whereCondition = { slug: req.params.slug };
+
+            if (showDeleted !== null) {
+                whereCondition.deletedAt = { [Op.not]: null };
+            } else {
+                whereCondition.deletedAt = null;
+            }
+
+            let userGet = await User.findOne({
+                where: whereCondition,
+                include: [
+                    {
+                        model: Payment,
+                        attributes: ['price', 'receipt', 'id'],
+                        as: 'Payment'
+                    },
+                    {
+                        model: Package_tryout,
+                        attributes: ['title', 'id'],
+                    },
+                    {
+                        model: User_info,
+                        as: 'User_info'
+                    },
+                ],
+                attributes: { exclude: ['Payment', 'Package_tryout', 'User_info'] }
+            });
+
+            //cek jika user tidak ada
+            if (!userGet) {
+                res.status(404).json(response(404, 'user not found'));
+                return;
+            }
+
+            let formattedUsers = {
+                id: userGet.id,
+                name: userGet.User_info?.name,
+                payment_id: userGet.Payment?.id,
+                price: userGet.Payment?.price,
+                receipt: userGet.Payment?.receipt,
+                packagetryout_id: userGet.Package_tryout?.id,
+                package_name: userGet.Package_tryout?.title || 'No Package',
+                createdAt: userGet.createdAt,
+                updatedAt: userGet.updatedAt
+            };
+
+            //response menggunakan helper response.formatter
+            res.status(200).json(response(200, 'success get report payment by slug', formattedUsers));
+        } catch (err) {
+            res.status(500).json(response(500, 'internal server error', err));
+            console.log(err);
+        }
+    },
 }
