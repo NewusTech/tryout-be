@@ -9,6 +9,9 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.INTEGER
       },
+      user_id: {
+        type: Sequelize.INTEGER
+      },
       title: {
         type: Sequelize.STRING
       },
@@ -45,7 +48,6 @@ module.exports = {
         type: Sequelize.DATE
       }
     });
-    
 
     await queryInterface.addConstraint('Package_tryouts', {
       fields: ['typepackage_id'],
