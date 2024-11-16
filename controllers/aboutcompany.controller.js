@@ -23,6 +23,7 @@ module.exports = {
                 title: { type: "string", min: 3 },
                 sub_title: { type: "string", min: 3 },
                 description: { type: "string", min: 3 },
+                telepon: { type: "string", min: 3 },
             }
     
             let mainlogoKey, sublogoKey;
@@ -68,6 +69,7 @@ module.exports = {
                 title: req.body.title,
                 sub_title: req.body.sub_title,
                 description: req.body.description,
+                telepon: req.body.telepon,
                 main_logo: mainlogoKey || null,
                 sub_logo: sublogoKey || null,
             }
@@ -153,6 +155,7 @@ module.exports = {
                 title: { type: "string", min: 3, optional: true },
                 sub_title: { type: "string", min: 3, optional: true },
                 description: { type: "string", min: 3, optional: true },
+                telepon: { type: "string", min: 3, optional: true },
                 main_logo: { type: "string", min: 3, optional: true },
                 sub_logo: { type: "string", min: 3, optional: true },
             };
@@ -203,6 +206,7 @@ module.exports = {
                 title: req.body.title,
                 sub_title: req.body.sub_title,
                 description: req.body.description,
+                telepon: req.body.telepon,
                 main_logo: mainlogoKey || ProfileGet.main_logo,
                 sub_logo: sublogoKey || ProfileGet.sub_logo,
             };
