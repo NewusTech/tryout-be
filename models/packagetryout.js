@@ -20,6 +20,7 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   Package_tryout.init({
+    user_id: DataTypes.INTEGER,
     title: DataTypes.STRING,
     slug: DataTypes.STRING,
     description: DataTypes.TEXT,
