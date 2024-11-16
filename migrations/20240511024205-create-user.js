@@ -59,17 +59,7 @@ module.exports = {
         field: 'id'
       }
     });
-
-    await queryInterface.addConstraint('Users', {
-      fields: ['packagetryout_id'],
-      type: 'foreign key',
-      name: 'custom_fkey_packagetryout_id',
-      references: {
-        table: 'Package_tryout',
-        field: 'id'
-      }
-    });
-
+    
     await queryInterface.addConstraint('Users', {
       fields: ['role_id'],
       type: 'foreign key',
