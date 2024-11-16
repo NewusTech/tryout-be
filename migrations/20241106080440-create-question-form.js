@@ -28,7 +28,7 @@ module.exports = {
         type: Sequelize.BOOLEAN
       },
       correct_answer: {
-        type: Sequelize.INTEGER
+        type: Sequelize.JSON
       },
       discussion: {
         type: Sequelize.STRING
