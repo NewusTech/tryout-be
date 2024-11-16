@@ -18,6 +18,9 @@ module.exports = {
       description: {
         type: Sequelize.TEXT
       },
+      telepon: {
+        type: Sequelize.STRING
+      },
       main_logo: {
         type: Sequelize.STRING
       },
