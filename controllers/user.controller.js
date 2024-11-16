@@ -1,6 +1,6 @@
 const { response } = require('../helpers/response.formatter');
 
-const { User, Token, Role, User_info, Payment, Package_tryout, User_permission, Permission, sequelize } = require('../models');
+const { User, Token, Role, User_info, Payment, Package_tryout, User_permission, Permission, Provinsi, Kota, Question_form_num, sequelize } = require('../models');
 const baseConfig = require('../config/base.config');
 const passwordHash = require('password-hash');
 const jwt = require('jsonwebtoken');
@@ -285,7 +285,9 @@ module.exports = {
             let userGets;
             let totalCount;
 
-            const whereCondition = {};
+            const whereCondition = {
+                role_id: 2
+            };
 
             if (showDeleted !== null) {
                 whereCondition.deletedAt = { [Op.not]: null };
@@ -323,8 +325,6 @@ module.exports = {
                     slug: user.slug,
                     name: user.User_info?.name,
                     email: user.User_info?.email,
-                    role_id: user.Role?.id,
-                    role_name: user.Role?.name,
                     createdAt: user.createdAt,
                     updatedAt: user.updatedAt
                 };
@@ -367,7 +367,17 @@ module.exports = {
                     },
                     {
                         model: User_info,
-                        as: 'User_info'
+                        as: 'User_info',
+                        include: [
+                            {
+                                model: Provinsi,
+                                attributes: ['name'],
+                            },
+                            {
+                                model: Kota,
+                                attributes: ['name'],
+                            }
+                        ]
                     },
                 ],
                 attributes: { exclude: ['Role', 'User_info'] }
@@ -379,14 +389,49 @@ module.exports = {
                 return;
             }
 
+            const userPackages = await Package_tryout.findAll({
+                where: { user_id: userGet.id }
+            });
+
+            const userPeforms = await Question_form_num.findAll({
+                where: { userinfo_id: userGet.id },
+                include: [
+                    {
+                        model: Package_tryout,
+                        attributes: ['title'],
+                    }
+                ]
+            });
+
+            const formattedPackages = userPackages.map(package => ({
+                id: package.id,
+                nama_package: package.title,
+            }));
+
+            const formattedPeforms = userPeforms.map(performa => ({
+                id: performa.id,
+                packagetryout_id: performa.packagetryout_id,
+                nama_tryout: performa.Package_tryout ? performa.Package_tryout.title : null,
+                skor: performa.skor,
+            }));
+
             let formattedUsers = {
                 id: userGet.id,
                 name: userGet.User_info?.name,
                 email: userGet.User_info?.email,
-                role_id: userGet.Role?.id,
-                role_name: userGet.Role?.name,
+                telepon: userGet.User_info?.telepon,
+                alamat: userGet.User_info?.alamat,
+                gender: userGet.User_info?.gender,
+                asal_instansi: userGet.User_info?.asal_instansi,
+                provinsi_id: userGet.User_info?.provinsi_id,
+                provinsi_name: userGet.User_info?.Provinsi?.name,
+                kota_id: userGet.User_info?.kota_id,
+                kota_name: userGet.User_info?.Kota?.name,
                 createdAt: userGet.createdAt,
-                updatedAt: userGet.updatedAt
+                updatedAt: userGet.updatedAt,
+
+                package_tryout: formattedPackages,
+                performa: formattedPeforms,
             };
 
             //response menggunakan helper response.formatter
@@ -559,7 +604,7 @@ module.exports = {
                 include: [
                     {
                         model: User_info,
-                        attributes: ['email'],
+                        attributes: ['email', 'name'],
                         where: { email },
                     }
                 ]
