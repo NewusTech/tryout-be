@@ -56,6 +56,88 @@ const s3Client = new S3Client({
 module.exports = {
 
   //create answer form user
+  // inputFormQuestion: async (req, res) => {
+  //   const transaction = await sequelize.transaction();
+  //   try {
+  //       const idpackage = req.params.idpackage;
+  //       const iduser = req.user.role === "User" ? req.user.userId : req.body.userId;
+  //       const statusinput = 1;
+
+  //       if (!iduser) {
+  //         return res.status(403).json(response(403, "User must be login", []));
+  //       }
+
+  //       const { datainput } = req.body;
+
+  //       const today = new Date();
+  //       const todayStr = today.toISOString().split("T")[0];
+
+  //       const countToday = await Question_form_num.count({
+  //           where: {
+  //               createdAt: {
+  //                   [Op.gte]: new Date(todayStr + "T00:00:00Z"),
+  //                   [Op.lte]: new Date(todayStr + "T23:59:59Z"),
+  //               },
+  //               packagetryout_id: idpackage,
+  //           },
+  //       });
+
+  //       let packageID = {
+  //           userinfo_id: Number(iduser),
+  //           packagetryout_id: Number(idpackage),
+  //           status: Number(statusinput),
+  //       };
+
+  //       const createdQuestionformnum = await Question_form_num.create(packageID, { transaction });
+  //       const idforminput = createdQuestionformnum.id;
+  //       console.log("Created Question_form_num ID:", idforminput);
+
+  //       // Tambahkan idforminput
+  //       const updatedDatainput = datainput.map((item) => ({
+  //           ...item,
+  //           questionformnum_id: idforminput,
+  //       }));
+
+  //       const createdQuestionforminput = await Question_form_input.bulkCreate(updatedDatainput, { transaction });
+
+  //       let correctAnswersCount = 0;
+
+  //       for (let item of datainput) {
+  //           const { questionform_id, data } = item;
+
+  //           const question = await Question_form.findByPk(questionform_id);
+  //           if (!question) {
+  //               throw new Error(`Question with ID ${questionform_id} not found`);
+  //           }
+
+  //           if (Number(question.correct_answer) === Number(data)) {
+  //             correctAnswersCount += 1;
+  //         }
+  //       }
+
+  //       // Hitung skor sebagai persentase
+  //       const totalQuestions = datainput.length;
+  //       const score = (correctAnswersCount / totalQuestions) * 100;
+
+  //       await Question_form_num.update(
+  //           { skor: score.toFixed(2) },
+  //           { where: { id: idforminput }, transaction }
+  //       );
+
+  //       await transaction.commit();
+
+  //       res.status(201).json(response(201, "Success create question form input and calculate score", {
+  //               input: createdQuestionforminput,
+  //               score: score.toFixed(2)
+  //           })
+  //       );
+  //   } catch (err) {
+  //       await transaction.rollback();
+  //       res.status(500).json(response(500, "Internal server error", err));
+  //       console.error(err);
+  //   }
+  // },
+
   inputFormQuestion: async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
@@ -64,7 +146,7 @@ module.exports = {
         const statusinput = 1;
 
         if (!iduser) {
-          return res.status(403).json(response(403, "User must be login", []));
+            return res.status(403).json(response(403, "User must be login", []));
         }
 
         const { datainput } = req.body;
@@ -92,7 +174,7 @@ module.exports = {
         const idforminput = createdQuestionformnum.id;
         console.log("Created Question_form_num ID:", idforminput);
 
-        // Tambahkan idforminput
+        
         const updatedDatainput = datainput.map((item) => ({
             ...item,
             questionformnum_id: idforminput,
@@ -101,6 +183,7 @@ module.exports = {
         const createdQuestionforminput = await Question_form_input.bulkCreate(updatedDatainput, { transaction });
 
         let correctAnswersCount = 0;
+        let totalPoints = 0; 
 
         for (let item of datainput) {
             const { questionform_id, data } = item;
@@ -110,14 +193,31 @@ module.exports = {
                 throw new Error(`Question with ID ${questionform_id} not found`);
             }
 
-            if (Number(question.correct_answer) === Number(data)) {
-              correctAnswersCount += 1;
-          }
+            let points = 0; 
+
+            
+            if (Array.isArray(question.correct_answer)) {
+                
+                const correctAnswers = question.correct_answer.filter(answer => answer.id === Number(data));
+
+                if (correctAnswers.length > 0) {
+                    
+                    points = correctAnswers.reduce((total, answer) => total + (answer.point || 0), 0);
+                }
+            } else if (Number(question.correct_answer) === Number(data)) {
+                
+                points = 5;
+            }
+
+            
+            if (points > 0) {
+                correctAnswersCount += 1;
+                totalPoints += points;
+            }
         }
 
-        // Hitung skor sebagai persentase
-        const totalQuestions = datainput.length;
-        const score = (correctAnswersCount / totalQuestions) * 100;
+       
+        const score = totalPoints; 
 
         await Question_form_num.update(
             { skor: score.toFixed(2) },
@@ -127,16 +227,18 @@ module.exports = {
         await transaction.commit();
 
         res.status(201).json(response(201, "Success create question form input and calculate score", {
-                input: createdQuestionforminput,
-                score: score.toFixed(2)
-            })
-        );
+            input: createdQuestionforminput,
+            score: score.toFixed(2)
+        }));
     } catch (err) {
         await transaction.rollback();
         res.status(500).json(response(500, "Internal server error", err));
         console.error(err);
     }
-  },
+},
+
+
+
 
   //get input form user
   getDetailInputForm: async (req, res) => {

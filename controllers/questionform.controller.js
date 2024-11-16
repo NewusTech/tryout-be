@@ -90,18 +90,18 @@ module.exports = {
         }
     },
 
+    //membuat question form multi
     createMultiQuestionForm: async (req, res) => {
         const transaction = await sequelize.transaction();
-
         try {
-            // Define schema for validation
+            
             const schema = {
                 field: { type: "string", min: 1 },
                 tipedata: { type: "string", min: 1 },
                 status: { type: "boolean", optional: true },
                 packagetryout_id: { type: "number", optional: true },
                 typequestion_id: { type: "number", optional: true },
-                correct_answer: { type: "number", min: 1 },
+                correct_answer: { type: "any" }, 
                 discussion: { type: "string", min: 1 },
                 datajson: {
                     type: "array",
@@ -116,59 +116,76 @@ module.exports = {
                     optional: true
                 }
             };
-
-            // Check if the request body is an array
+    
+            
             if (!Array.isArray(req.body)) {
-                res.status(400).json(response(400, 'Request body must be an array of objects'));
+                res.status(400).json({ status: 400, message: "Request body must be an array of objects" });
                 return;
             }
-
-            // Initialize arrays for validation errors and successfully created objects
+    
+            
             let errors = [];
             let createdForms = [];
-
-            // Validate and process each object in the input array
+    
+            
             for (let input of req.body) {
-                // Create the question form object
-                let questionformCreateObj = {
+                
+                let correctAnswerProcessed = null;
+    
+                if (typeof input.correct_answer === "number") {
+                    
+                    correctAnswerProcessed = input.correct_answer;
+                } else if (Array.isArray(input.correct_answer)) {
+                    
+                    correctAnswerProcessed = input.correct_answer;
+                } else {
+                    
+                    errors.push({ input, errors: ["Invalid format for correct_answer."] });
+                    continue;
+                }
+    
+                
+                const questionformCreateObj = {
                     field: input.field,
                     tipedata: input.tipedata,
                     status: input.status !== undefined ? Boolean(input.status) : true,
-                    packagetryout_id: input.packagetryout_id !== undefined ? Number(input.packagetryout_id) : null,
-                    typequestion_id: input.typequestion_id !== undefined ? Number(input.typequestion_id) : null,
-                    datajson: input.datajson || null,
-                    correct_answer: input.correct_answer,
-                    discussion: input.discussion
+                    packagetryout_id: input.packagetryout_id || null,
+                    typequestion_id: input.typequestion_id || null,
+                    correct_answer: correctAnswerProcessed,
+                    discussion: input.discussion,
+                    datajson: input.datajson || null
                 };
-
-                // Validate the object
+    
+                
                 const validate = v.validate(questionformCreateObj, schema);
                 if (validate.length > 0) {
                     errors.push({ input, errors: validate });
                     continue;
                 }
-
-                // Create question form in the database
+    
+                
                 let questionformCreate = await Question_form.create(questionformCreateObj, { transaction });
                 createdForms.push(questionformCreate);
             }
-
-            // If there are validation errors, respond with them
+    
+            
             if (errors.length > 0) {
-                res.status(400).json(response(400, 'Validation failed', errors));
+                await transaction.rollback();
+                res.status(400).json({ status: 400, message: "Validation failed", errors });
                 return;
             }
-
-            // Respond with the successfully created objects
+    
+            
             await transaction.commit();
-            res.status(201).json(response(201, 'Successfully created question form(s)', createdForms));
+            res.status(201).json({ status: 201, message: "Successfully created question form(s)", data: createdForms });
         } catch (err) {
+            
             await transaction.rollback();
-            res.status(500).json(response(500, 'Internal server error', err));
-            console.log(err);
+            console.error(err);
+            res.status(500).json({ status: 500, message: "Internal server error", error: err.message });
         }
     },
-
+    
     //mendapatkan semua form berdasarkan paket tryout
     getFormByPackage: async (req, res) => {
         try {
