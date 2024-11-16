@@ -23,7 +23,7 @@ module.exports = (sequelize, DataTypes) => {
     packagetryout_id: DataTypes.INTEGER,
     typequestion_id: DataTypes.INTEGER,
     status: DataTypes.BOOLEAN,
-    correct_answer: DataTypes.STRING,
+    correct_answer: DataTypes.JSON,
     discussion: DataTypes.STRING,
   }, {
     sequelize,
