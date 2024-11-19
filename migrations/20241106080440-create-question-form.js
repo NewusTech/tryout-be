@@ -9,10 +9,7 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.INTEGER
       },
-      packagetryout_id: {
-        type: Sequelize.INTEGER
-      },
-      typequestion_id: {
+      banksoal_id: {
         type: Sequelize.INTEGER
       },
       field: {
@@ -43,25 +40,25 @@ module.exports = {
       }
     });
 
-    await queryInterface.addConstraint('Question_forms', {
-      fields: ['packagetryout_id'],
-      type: 'foreign key',
-      name: 'custom_fkey_package_tryout_id',
-      references: {
-        table: 'Package_tryouts',
-        field: 'id'
-      }
-    });
+    // await queryInterface.addConstraint('Question_forms', {
+    //   fields: ['packagetryout_id'],
+    //   type: 'foreign key',
+    //   name: 'custom_fkey_package_tryout_id',
+    //   references: {
+    //     table: 'Package_tryouts',
+    //     field: 'id'
+    //   }
+    // });
 
-    await queryInterface.addConstraint('Question_forms', {
-      fields: ['typequestion_id'],
-      type: 'foreign key',
-      name: 'custom_fkey_type_question_id',
-      references: {
-        table: 'Type_questions',
-        field: 'id'
-      }
-    });
+    // await queryInterface.addConstraint('Question_forms', {
+    //   fields: ['typequestion_id'],
+    //   type: 'foreign key',
+    //   name: 'custom_fkey_type_question_id',
+    //   references: {
+    //     table: 'Type_questions',
+    //     field: 'id'
+    //   }
+    // });
   },
 
   //untuk drop table ketika melakukan revert migrations
