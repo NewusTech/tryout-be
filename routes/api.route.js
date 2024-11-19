@@ -16,6 +16,8 @@ const bannerRoute = require('./banner.route');
 const scheduleRoute = require('./schedule.route');
 const typeuserRoute = require('./typeuser.route');
 const reportpaymentRoute = require('./reportpayment.route');
+const termconditionRoute = require('./termcondition.route');
+const typepaymentRoute = require('./typepayment.route');
 
 module.exports = function (app, urlApi) {
     app.use(urlApi, userRoute);
@@ -36,4 +38,6 @@ module.exports = function (app, urlApi) {
     app.use(urlApi, scheduleRoute);
     app.use(urlApi, typeuserRoute);
     app.use(urlApi, reportpaymentRoute);
+    app.use(urlApi, termconditionRoute);
+    app.use(urlApi, typepaymentRoute);
 }
