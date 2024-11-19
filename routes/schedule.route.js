@@ -6,7 +6,7 @@ const express = require('express');
 const route = express.Router();
 
 route.post('/user/tryout/schedule/create', [mid.checkRolesAndLogout(['Super Admin'])], scheduleController.createSchedule);
-route.post('/user/get/tryout/schedule', [mid.checkRolesAndLogout(['Super Admin', 'User'])], scheduleController.getScheduleTryout);
+route.get('/user/tryout/schedule/get', [mid.checkRolesAndLogout(['Super Admin', 'User'])], scheduleController.getScheduleTryout);
 
 
 module.exports = route;
