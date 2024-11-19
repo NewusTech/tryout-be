@@ -1,5 +1,5 @@
 const { response } = require("../helpers/response.formatter");
-const { Package_tryout, Type_package} = require("../models");
+const { Package_tryout, Type_package, Bank_package, sequelize} = require("../models");
 require("dotenv").config();
 const slugify = require("slugify");
 const Validator = require("fastest-validator");
@@ -7,7 +7,7 @@ const v = new Validator();
 const fs = require("fs");
 const path = require("path");
 const { generatePagination } = require("../pagination/pagination");
-const { Op, Sequelize, where } = require("sequelize");
+const { Op } = require('sequelize');
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const logger = require("../errorHandler/logger");
 const { duration } = require("moment-timezone");
@@ -24,6 +24,7 @@ const s3Client = new S3Client({
 module.exports = {
   //membuat paket tryout
   createPackage: async (req, res) => {
+    const transaction = await sequelize.transaction();
     try {
       const schema = {
         title: { type: "string" },
@@ -32,7 +33,9 @@ module.exports = {
         price: { type: "string", optional: true },
         typepackage_id: { type: "number", optional: true },
         total_question: { type: "string", optional: true },
+        banksoals: { type: "array", optional: true }
       };
+  
       let packageCreateObj = {
         title: req.body.title,
         slug: slugify(req.body.title, { lower: true }),
@@ -43,13 +46,15 @@ module.exports = {
         typepackage_id:
           req.body.typepackage_id !== undefined ? Number(req.body.typepackage_id) : null,
       };
-
-      //validasi
+  
+      // Validasi input
       const validate = v.validate(packageCreateObj, schema);
       if (validate.length > 0) {
-        res.status(400).json(response(400, "validation failed", validate));
+        res.status(400).json(response(400, "Validation failed", validate));
         return;
       }
+  
+      // Cek apakah slug sudah terdaftar
       let dataGets = await Package_tryout.findOne({
         where: {
           slug: packageCreateObj.slug,
@@ -57,22 +62,39 @@ module.exports = {
         },
       });
       if (dataGets) {
-        res.status(409).json(response(409, "slug already registered"));
+        res.status(409).json(response(409, "Slug already registered"));
         return;
       }
+  
+      // Buat paket tryout
+      let packageCreate = await Package_tryout.create(packageCreateObj, { transaction });
+  
+      // Jika ada banksoals dalam body request, hubungkan bank soal dengan paket tryout
+      // Jika ada banksoals dalam body request, hubungkan bank soal dengan paket tryout
+if (req.body.banksoals && Array.isArray(req.body.banksoals)) {
+  for (let banksoal of req.body.banksoals) {
+    await Bank_package.create({
+      packagetryout_id: packageCreate.id,
+      banksoal_id: banksoal.id,
+    }, { transaction });
+  }
+}
 
-      //buat paket tryout
-      let packageCreate = await Package_tryout.create(packageCreateObj);
-
-      //response menggunakan helper response.formatter
+  
+      // Commit transaksi
+      await transaction.commit();
+  
+      // Response menggunakan helper response.formatter
       res
         .status(201)
-        .json(response(201, "success create paket tryout", packageCreate));
+        .json(response(201, "Successfully created package tryout", packageCreate));
     } catch (err) {
-      res.status(500).json(response(500, "internal server error", err));
+      await transaction.rollback();
+      res.status(500).json(response(500, "Internal server error", err));
       console.log(err);
     }
   },
+  
 
   //get semua data paket tryout
   getPackageTryout: async (req, res) => {
