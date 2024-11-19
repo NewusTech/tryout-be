@@ -15,6 +15,9 @@ module.exports = {
       receipt: {
         type: Sequelize.STRING
       },
+      typepayment_id: {
+        type: Sequelize.INTEGER
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE
@@ -22,6 +25,16 @@ module.exports = {
       updatedAt: {
         allowNull: false,
         type: Sequelize.DATE
+      }
+    });
+
+    await queryInterface.addConstraint('Payments', {
+      fields: ['typepayment_id'],
+      type: 'foreign key',
+      name: 'custom_fkey_type_payment_id',
+      references: {
+        table: 'Type_payments',
+        field: 'id'
       }
     });
   },
