@@ -5,12 +5,12 @@ const {
 module.exports = (sequelize, DataTypes) => {
   class Question_form extends Model {
     static associate(models) {
-      Question_form.belongsTo(models.Package_tryout, {
-        foreignKey: 'packagetryout_id',
+      Question_form.belongsTo(models.Bank_soal, {
+        foreignKey: 'banksoal_id',
       });
-      Question_form.belongsTo(models.Type_question, {
-        foreignKey: 'typequestion_id',
-      });
+      // Question_form.belongsTo(models.Type_question, {
+      //   foreignKey: 'typequestion_id',
+      // });
       Question_form.hasMany(models.Question_form_input, {
         foreignKey: 'questionform_id',
       });
@@ -20,8 +20,7 @@ module.exports = (sequelize, DataTypes) => {
     field: DataTypes.STRING,
     tipedata: DataTypes.STRING,
     datajson: DataTypes.JSON,
-    packagetryout_id: DataTypes.INTEGER,
-    typequestion_id: DataTypes.INTEGER,
+    banksoal_id: DataTypes.INTEGER,
     status: DataTypes.BOOLEAN,
     correct_answer: DataTypes.JSON,
     discussion: DataTypes.STRING,

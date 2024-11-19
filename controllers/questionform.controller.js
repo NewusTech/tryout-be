@@ -1,6 +1,6 @@
 const { response } = require('../helpers/response.formatter');
 
-const { Package_tryout, Question_form, sequelize } = require('../models');
+const { Package_tryout, Question_form, Bank_soal, sequelize } = require('../models');
 require('dotenv').config()
 
 const { Op } = require('sequelize');
@@ -91,100 +91,222 @@ module.exports = {
     },
 
     //membuat question form multi
+    // createMultiQuestionForm: async (req, res) => {
+    //     const transaction = await sequelize.transaction();
+    //     try {
+            
+    //         const schema = {
+    //             field: { type: "string", min: 1 },
+    //             tipedata: { type: "string", min: 1 },
+    //             status: { type: "boolean", optional: true },
+    //             // packagetryout_id: { type: "number", optional: true },
+    //             typequestion_id: { type: "number", optional: true },
+    //             correct_answer: { type: "any" }, 
+    //             discussion: { type: "string", min: 1 },
+    //             datajson: {
+    //                 type: "array",
+    //                 items: {
+    //                     type: "object",
+    //                     properties: {
+    //                         id: { type: "number" },
+    //                         key: { type: "string" }
+    //                     },
+    //                     required: ["id", "key"]
+    //                 },
+    //                 optional: true
+    //             }
+    //         };
+    
+            
+    //         if (!Array.isArray(req.body)) {
+    //             res.status(400).json({ status: 400, message: "Request body must be an array of objects" });
+    //             return;
+    //         }
+    
+            
+    //         let errors = [];
+    //         let createdForms = [];
+    
+            
+    //         for (let input of req.body) {
+                
+    //             let correctAnswerProcessed = null;
+    
+    //             if (typeof input.correct_answer === "number") {
+                    
+    //                 correctAnswerProcessed = input.correct_answer;
+    //             } else if (Array.isArray(input.correct_answer)) {
+                    
+    //                 correctAnswerProcessed = input.correct_answer;
+    //             } else {
+                    
+    //                 errors.push({ input, errors: ["Invalid format for correct_answer."] });
+    //                 continue;
+    //             }
+    
+                
+    //             const questionformCreateObj = {
+    //                 field: input.field,
+    //                 tipedata: input.tipedata,
+    //                 status: input.status !== undefined ? Boolean(input.status) : true,
+    //                 // packagetryout_id: input.packagetryout_id || null,
+    //                 typequestion_id: input.typequestion_id || null,
+    //                 correct_answer: correctAnswerProcessed,
+    //                 discussion: input.discussion,
+    //                 datajson: input.datajson || null
+    //             };
+    
+                
+    //             const validate = v.validate(questionformCreateObj, schema);
+    //             if (validate.length > 0) {
+    //                 errors.push({ input, errors: validate });
+    //                 continue;
+    //             }
+    
+                
+    //             let questionformCreate = await Question_form.create(questionformCreateObj, { transaction });
+    //             createdForms.push(questionformCreate);
+    //         }
+    
+            
+    //         if (errors.length > 0) {
+    //             await transaction.rollback();
+    //             res.status(400).json({ status: 400, message: "Validation failed", errors });
+    //             return;
+    //         }
+    
+            
+    //         await transaction.commit();
+    //         res.status(201).json({ status: 201, message: "Successfully created question form(s)", data: createdForms });
+    //     } catch (err) {
+            
+    //         await transaction.rollback();
+    //         console.error(err);
+    //         res.status(500).json({ status: 500, message: "Internal server error", error: err.message });
+    //     }
+    // },
     createMultiQuestionForm: async (req, res) => {
-        const transaction = await sequelize.transaction();
+        const transaction = await sequelize.transaction(); // Mulai transaksi untuk memastikan semua atau tidak ada yang commit
         try {
-            
-            const schema = {
-                field: { type: "string", min: 1 },
-                tipedata: { type: "string", min: 1 },
-                status: { type: "boolean", optional: true },
-                packagetryout_id: { type: "number", optional: true },
-                typequestion_id: { type: "number", optional: true },
-                correct_answer: { type: "any" }, 
-                discussion: { type: "string", min: 1 },
-                datajson: {
-                    type: "array",
-                    items: {
-                        type: "object",
-                        properties: {
-                            id: { type: "number" },
-                            key: { type: "string" }
-                        },
-                        required: ["id", "key"]
-                    },
-                    optional: true
-                }
+          // Validasi request body
+          const schema = {
+            field: { type: "string", min: 1 },
+            tipedata: { type: "string", min: 1 },
+            status: { type: "boolean", optional: true },
+            typequestion_id: { type: "number", optional: true },
+            correct_answer: { type: "any" },
+            discussion: { type: "string", min: 1 },
+            datajson: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  id: { type: "number" },
+                  key: { type: "string" }
+                },
+                required: ["id", "key"]
+              },
+              optional: true
+            }
+          };
+      
+          // Pastikan request body berupa array
+          if (!req.body || !Array.isArray(req.body.questions)) {
+            res.status(400).json({ 
+              status: 400, 
+              message: "Request body must contain an array of questions" 
+            });
+            return;
+          }
+
+          console.log(req.body); 
+      
+          // Validasi input data
+          let errors = [];
+          let createdBankSoal = null;
+          let createdQuestions = [];
+      
+          // Langkah 1: Create Bank_soal terlebih dahulu
+          const bankSoalData = req.body.banksoal;
+          const bankSoalCreate = await Bank_soal.create({
+            title: bankSoalData.title,
+            typequestion_id: bankSoalData.typequestion_id
+          }, { transaction });
+      
+          createdBankSoal = bankSoalCreate; // Simpan Bank_soal yang sudah dibuat
+      
+          // Langkah 2: Loop untuk membuat setiap Question_form
+          for (let input of req.body.questions) {
+            let correctAnswerProcessed = null;
+      
+            // Proses correct_answer
+            if (Array.isArray(input.correct_answer)) {
+              // Jika correct_answer adalah array, kita bisa mengirim array yang lebih kompleks (ID dan Point)
+              correctAnswerProcessed = input.correct_answer.map(answer => ({
+                id: answer.id,
+                key: answer.key,
+                point: answer.point || 0 // Tambahkan point dengan nilai default 0 jika tidak ada
+              }));
+            } else if (typeof input.correct_answer === "number") {
+              // Jika correct_answer adalah number, kita anggap sebagai ID yang benar
+              correctAnswerProcessed = input.correct_answer;
+            } else {
+              errors.push({ input, errors: ["Invalid format for correct_answer."] });
+              continue;
+            }
+      
+            // Objek yang akan digunakan untuk create Question_form
+            const questionFormCreateObj = {
+              field: input.field,
+              tipedata: input.tipedata,
+              status: input.status !== undefined ? Boolean(input.status) : true,
+              correct_answer: correctAnswerProcessed,
+              discussion: input.discussion,
+              datajson: input.datajson || null,
+              banksoal_id: createdBankSoal.id // Mengaitkan soal dengan banksoal yang baru dibuat
             };
-    
-            
-            if (!Array.isArray(req.body)) {
-                res.status(400).json({ status: 400, message: "Request body must be an array of objects" });
-                return;
+      
+            // Validasi data sebelum disimpan
+            const validate = v.validate(questionFormCreateObj, schema);
+            if (validate.length > 0) {
+              errors.push({ input, errors: validate });
+              continue;
             }
-    
-            
-            let errors = [];
-            let createdForms = [];
-    
-            
-            for (let input of req.body) {
-                
-                let correctAnswerProcessed = null;
-    
-                if (typeof input.correct_answer === "number") {
-                    
-                    correctAnswerProcessed = input.correct_answer;
-                } else if (Array.isArray(input.correct_answer)) {
-                    
-                    correctAnswerProcessed = input.correct_answer;
-                } else {
-                    
-                    errors.push({ input, errors: ["Invalid format for correct_answer."] });
-                    continue;
-                }
-    
-                
-                const questionformCreateObj = {
-                    field: input.field,
-                    tipedata: input.tipedata,
-                    status: input.status !== undefined ? Boolean(input.status) : true,
-                    packagetryout_id: input.packagetryout_id || null,
-                    typequestion_id: input.typequestion_id || null,
-                    correct_answer: correctAnswerProcessed,
-                    discussion: input.discussion,
-                    datajson: input.datajson || null
-                };
-    
-                
-                const validate = v.validate(questionformCreateObj, schema);
-                if (validate.length > 0) {
-                    errors.push({ input, errors: validate });
-                    continue;
-                }
-    
-                
-                let questionformCreate = await Question_form.create(questionformCreateObj, { transaction });
-                createdForms.push(questionformCreate);
-            }
-    
-            
-            if (errors.length > 0) {
-                await transaction.rollback();
-                res.status(400).json({ status: 400, message: "Validation failed", errors });
-                return;
-            }
-    
-            
-            await transaction.commit();
-            res.status(201).json({ status: 201, message: "Successfully created question form(s)", data: createdForms });
-        } catch (err) {
-            
+      
+            // Create Question_form
+            const questionFormCreate = await Question_form.create(questionFormCreateObj, { transaction });
+            createdQuestions.push(questionFormCreate);
+          }
+      
+          // Jika ada error pada validasi, rollback transaksi
+          if (errors.length > 0) {
             await transaction.rollback();
-            console.error(err);
-            res.status(500).json({ status: 500, message: "Internal server error", error: err.message });
+            res.status(400).json({ status: 400, message: "Validation failed", errors });
+            return;
+          }
+      
+          // Commit transaksi jika semuanya berhasil
+          await transaction.commit();
+      
+          // Kembalikan response sukses
+          res.status(201).json({
+            status: 201,
+            message: "Successfully created bank soal and question forms",
+            data: {
+              bankSoal: createdBankSoal,
+              questionForms: createdQuestions
+            }
+          });
+      
+        } catch (err) {
+          // Rollback transaksi jika terjadi error
+          await transaction.rollback();
+          console.error(err);
+          res.status(500).json({ status: 500, message: "Internal server error", error: err.message });
         }
-    },
+      },
+   
+    
     
     //mendapatkan semua form berdasarkan paket tryout
     getFormByPackage: async (req, res) => {
