@@ -18,9 +18,6 @@ module.exports = {
         packagetryout_id: {
           type: Sequelize.INTEGER
         },
-        // layanan_id: {
-        //   type: Sequelize.INTEGER
-        // },
         sertifikat: {
           type: Sequelize.STRING
         },
