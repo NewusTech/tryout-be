@@ -16,7 +16,7 @@ module.exports = {
         type: Sequelize.STRING,
         unique: true
       },
-      typeuser_id: {
+      typepackage_id: {
         type: Sequelize.INTEGER
       },
       role_id: {
