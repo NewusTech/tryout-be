@@ -1,6 +1,6 @@
 const { response } = require('../helpers/response.formatter');
 
-const { User, Token, Role, User_info, Payment, Package_tryout, User_permission, Permission, Provinsi, Kota, Question_form_num, sequelize } = require('../models');
+const { User, Token, Role, Type_package, User_info, Payment, Type_payment, Package_tryout, User_permission, Permission, Provinsi, Kota, Question_form_num, sequelize } = require('../models');
 const baseConfig = require('../config/base.config');
 const passwordHash = require('password-hash');
 const jwt = require('jsonwebtoken');
@@ -46,7 +46,8 @@ module.exports = {
                 telepon: { type: "string", min: 7, max: 15, pattern: /^[0-9]+$/, optional: true },
                 password: { type: "string", min: 5, max: 16 },
                 role_id: { type: "number", optional: true },
-                typeuser_id: { type: "number", optional: true },
+                typepackage_id: { type: "number", optional: true },
+                typepayment_id: { type: "number", optional: true },
                 price: { type: "string", optional: true},
                 receipt: { type: "string", optional: true }
             };
@@ -80,7 +81,8 @@ module.exports = {
                 role_id: req.body.role_id !== undefined ? Number(req.body.role_id) : undefined,
                 email: req.body.email,
                 telepon: req.body.telepon,
-                typeuser_id: req.body.typeuser_id !== undefined ? Number(req.body.typeuser_id) : undefined,
+                typepackage_id: req.body.typepackage_id !== undefined ? Number(req.body.typepackage_id) : undefined,
+                typepayment_id: req.body.typepayment_id !== undefined ? Number(req.body.typepayment_id) : undefined,
                 price: req.body.price,
                 receipt: receiptKey || null
             }, schema);
@@ -122,6 +124,7 @@ module.exports = {
             let userinfoCreate = await User_info.create(userinfoCreateObj, { transaction });
 
             let paymentCreateObj = {
+                typepayment_id: req.body.typepayment_id,
                 price: req.body.price,
                 receipt: receiptKey || null, 
             };
@@ -133,7 +136,7 @@ module.exports = {
             let userCreateObj = {
                 password: passwordHash.generate(req.body.password),
                 role_id: req.body.role_id ? Number(req.body.role_id) : undefined,
-                typeuser_id: req.body.typeuser_id ? Number(req.body.typeuser_id) : undefined,
+                typepackage_id: req.body.typepackage_id ? Number(req.body.typepackage_id) : undefined,
                 userinfo_id: userinfoCreate.id,
                 payment_id: paymentCreate.id,
                 slug: slug
@@ -782,11 +785,19 @@ module.exports = {
                         {
                             model: Payment,
                             attributes: ['price', 'receipt', 'id'],
-                            as: 'Payment'
+                            as: 'Payment',
+                            include: [
+                                {
+                                    model: Type_payment,
+                                    attributes: ['title', 'id'],
+                                }]
                         },
                         {
                             model: User_info,
                             as: 'User_info',
+                        },
+                        {
+                            model: Type_package,
                         },
                     ],
                     limit: limit,
@@ -806,9 +817,11 @@ module.exports = {
                     slug: user.slug,
                     name: user.User_info?.name,
                     email: user.User_info?.email,
+                    type_package: user.Type_package?.name,
                     payment_id: user.Payment?.id,
-                    price: user.Payment?.price,
-                    receipt: user.Payment?.receipt,
+                    metode_payment: user.Payment?.Type_payment.title ?? null,
+                    price: user.Payment?.price ?? null,
+                    receipt: user.Payment?.receipt ?? null,
                     tanggal: user.createdAt,
                     updatedAt: user.updatedAt
                 };
@@ -844,20 +857,25 @@ module.exports = {
                 where: whereCondition,
                 include: [
                     {
-                        model: Payment,
-                        attributes: ['price', 'receipt', 'id'],
-                        as: 'Payment'
+                        model: Type_package,
+                        attributes: ['name', 'id'],
                     },
                     {
-                        model: Package_tryout,
-                        attributes: ['title', 'id'],
+                        model: Payment,
+                        attributes: ['price', 'receipt', 'id'],
+                        as: 'Payment',
+                        include: [
+                            {
+                                model: Type_payment,
+                                attributes: ['title', 'id'],
+                            }]
                     },
                     {
                         model: User_info,
                         as: 'User_info'
                     },
                 ],
-                attributes: { exclude: ['Payment', 'Package_tryout', 'User_info'] }
+                attributes: { exclude: ['Payment', 'Type_package', 'User_info'] }
             });
 
             //cek jika user tidak ada
@@ -869,11 +887,10 @@ module.exports = {
             let formattedUsers = {
                 id: userGet.id,
                 name: userGet.User_info?.name,
-                payment_id: userGet.Payment?.id,
+                metode_payment: userGet.Payment?.Type_payment.title ?? null,
                 price: userGet.Payment?.price,
                 receipt: userGet.Payment?.receipt,
-                packagetryout_id: userGet.Package_tryout?.id,
-                package_name: userGet.Package_tryout?.title || 'No Package',
+                package_user: userGet.Type_package?.name ?? null,
                 createdAt: userGet.createdAt,
                 updatedAt: userGet.updatedAt
             };

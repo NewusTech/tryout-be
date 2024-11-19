@@ -11,8 +11,8 @@ module.exports = (sequelize, DataTypes) => {
       User.belongsTo(models.User_info, {
         foreignKey: 'userinfo_id',
       });
-      User.belongsTo(models.Type_user, {
-        foreignKey: 'typeuser_id',
+      User.belongsTo(models.Type_package, {
+        foreignKey: 'typepackage_id',
       });
       User.belongsTo(models.Payment, {
         foreignKey: 'payment_id',
@@ -30,7 +30,7 @@ module.exports = (sequelize, DataTypes) => {
   User.init({
     password: DataTypes.STRING,
     slug: DataTypes.STRING,
-    typeuser_id: DataTypes.INTEGER,
+    typepackage_id: DataTypes.INTEGER,
     role_id: DataTypes.INTEGER,
     userinfo_id: DataTypes.INTEGER,
     payment_id: DataTypes.INTEGER,
