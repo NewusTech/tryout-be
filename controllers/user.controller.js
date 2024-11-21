@@ -47,32 +47,7 @@ module.exports = {
                 password: { type: "string", min: 5, max: 16 },
                 role_id: { type: "number", optional: true },
                 typepackage_id: { type: "number", optional: true },
-                // typepayment_id: { type: "number", optional: true },
-                // price: { type: "string", optional: true},
-                // receipt: { type: "string", optional: true }
             };
-
-            // let receiptKey;
-
-            // // Proses upload untuk receipt
-            // if (req.files?.receipt) {
-            //     const timestamp = new Date().getTime();
-            //     const uniqueFileName = `${timestamp}-${req.files.receipt[0].originalname}`;
-    
-            //     const uploadParams = {
-            //         Bucket: process.env.AWS_BUCKET,
-            //         Key: `${process.env.PATH_AWS}/receipt/${uniqueFileName}`,
-            //         Body: req.files.receipt[0].buffer,
-            //         ACL: 'public-read',
-            //         ContentType: req.files.receipt[0].mimetype
-            //     };
-    
-            //     const command = new PutObjectCommand(uploadParams);
-    
-            //     await s3Client.send(command);
-    
-            //     receiptKey = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
-            // }
     
             // Validasi
             const validate = v.validate({
@@ -82,9 +57,6 @@ module.exports = {
                 email: req.body.email,
                 telepon: req.body.telepon,
                 typepackage_id: req.body.typepackage_id !== undefined ? Number(req.body.typepackage_id) : undefined,
-                // typepayment_id: req.body.typepayment_id !== undefined ? Number(req.body.typepayment_id) : undefined,
-                // price: req.body.price,
-                // receipt: receiptKey || null
             }, schema);
 
     
@@ -122,23 +94,13 @@ module.exports = {
     
             // Membuat entri baru di tabel userinfo
             let userinfoCreate = await User_info.create(userinfoCreateObj, { transaction });
-
-            // let paymentCreateObj = {
-            //     // typepayment_id: req.body.typepayment_id,
-            //     // price: req.body.price,
-            //     // receipt: receiptKey || null, 
-            // };
-
-            // Membuat entri payment di tabel payments
-            // let paymentCreate = await Payment.create(paymentCreateObj, { transaction });
     
             // Membuat object untuk create user
             let userCreateObj = {
                 password: passwordHash.generate(req.body.password),
-                role_id: req.body.role_id ? Number(req.body.role_id) : undefined,
-                typepackage_id: req.body.typepackage_id ? Number(req.body.typepackage_id) : undefined,
+                role_id: 2,
+                typepackage_id: 1,
                 userinfo_id: userinfoCreate.id,
-                // payment_id: paymentCreate.id,
                 slug: slug
             };
     
@@ -278,6 +240,7 @@ module.exports = {
         }
     },
 
+    //membuatkan akun user oleh admin
     createUserByAdmin: async (req, res) => {
         const transaction = await sequelize.transaction();
     
@@ -410,7 +373,7 @@ module.exports = {
             // Membuat object untuk create user
             let userCreateObj = {
                 password: passwordHash.generate(req.body.password),
-                role_id: req.body.role_id ? Number(req.body.role_id) : undefined,
+                role_id: 2,
                 typepackage_id: req.body.typepackage_id ? Number(req.body.typepackage_id) : undefined,
                 userinfo_id: userinfoCreate.id,
                 payment_id: paymentCreate.id,
