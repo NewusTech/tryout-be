@@ -9,6 +9,9 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.INTEGER
       },
+      no_payment: {
+        type: Sequelize.STRING
+      },
       price: {
         type: Sequelize.STRING
       },
@@ -17,6 +20,9 @@ module.exports = {
       },
       typepayment_id: {
         type: Sequelize.INTEGER
+      },
+      status: {
+        type: Sequelize.BOOLEAN
       },
       createdAt: {
         allowNull: false,
