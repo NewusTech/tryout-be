@@ -9,9 +9,10 @@ const multer = require('multer');
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-route.post('/register', upload.fields([{ name: 'receipt', maxCount: 1 }]),  userController.createUser);
+route.post('/register', upload.fields([{ name: 'receipt', maxCount: 1 }]),  userController.registrasiUser);
 route.post('/login', userController.loginUser);
 route.post('/logout', [mid.checkRolesAndLogout(['Super Admin', 'User'])], userController.logoutUser); 
+route.post('/registerbyadmin', upload.fields([{ name: 'receipt', maxCount: 1 }]),  userController.createUserByAdmin);
 
 // API UNTUK ADMIN / SUPER ADMIN
 route.get('/user/get', [mid.checkRolesAndLogout(['Super Admin'])], userController.getUser); 
