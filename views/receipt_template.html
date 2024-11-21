@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pembayaran Sukses</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f9f9f9;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+      }
+
+      .card {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        width: 400px;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .success-icon {
+        width: 60px;
+        height: 60px;
+        background-color: #4caf50;
+        color: #fff;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 0 auto 20px;
+        font-size: 30px;
+      }
+
+      h2 {
+        color: #333;
+        margin-bottom: 10px;
+      }
+
+      .info {
+        text-align: left;
+        margin-top: 20px;
+      }
+
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .info-row span {
+        font-size: 14px;
+        color: #555;
+      }
+
+      .info-row strong {
+        color: #333;
+      }
+
+      .btn-invoice {
+        margin-top: 20px;
+        display: inline-block;
+        padding: 10px 20px;
+        background-color: #6a0dad;
+        color: #fff;
+        text-decoration: none;
+        border-radius: 5px;
+        font-size: 14px;
+        font-weight: bold;
+      }
+
+      .btn-invoice:hover {
+        background-color: #520a7a;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="success-icon">✔</div>
+      <h2>Pembayaran Sukses!</h2>
+      <div class="info">
+        <div class="info-row">
+          <span>Nomor Pembayaran</span>
+          <strong>{{noPayment}}</strong>
+        </div>
+        <div class="info-row">
+          <span>Metode Pembayaran</span>
+          <strong>{{metodePayment}}</strong>
+        </div>
+        <div class="info-row">
+          <span>Tanggal</span>
+          <strong>{{tanggal}}</strong>
+        </div>
+        <div class="info-row">
+          <span>Waktu</span>
+          <strong>{{time}}</strong>
+        </div>
+        <div class="info-row">
+          <span>Jumlah Dibayarkan</span>
+          <strong>Rp. {{pricePackage}}</strong>
+        </div>
+        <div class="info-row">
+          <span>Status</span>
+          <strong>{{status}}</strong>
+        </div>
+      </div>
+      <a href="#" class="btn-invoice">Invoice</a>
+    </div>
+  </body>
+</html>
