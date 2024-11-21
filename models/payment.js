@@ -12,9 +12,11 @@ module.exports = (sequelize, DataTypes) => {
   }
   
   Payment.init({
+    no_payment: DataTypes.STRING,
     typepayment_id: DataTypes.INTEGER,
     price: DataTypes.STRING,
-    receipt: DataTypes.STRING
+    receipt: DataTypes.STRING,
+    status: DataTypes.BOOLEAN,
   }, {
     sequelize,
     modelName: 'Payment',

@@ -1,4 +1,4 @@
-const userController = require('../controllers/user.controller');
+const paymentController = require('../controllers/payment.controller');
 
 const mid = require('../middlewares/auth.middleware');
 
@@ -9,7 +9,8 @@ const multer = require('multer');
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-route.get('/user/report/payment/get', [mid.checkRolesAndLogout(['User', 'Super Admin'])], userController.getReportPayment); 
-route.get('/user/report/payment/:slug', [mid.checkRolesAndLogout(['Super Admin', 'User'])], userController.getReportPaymentBySlug); 
+route.get('/user/report/payment/get', [mid.checkRolesAndLogout(['User', 'Super Admin'])], paymentController.getReportPayment); 
+route.get('/user/report/payment/:slug', [mid.checkRolesAndLogout(['Super Admin', 'User'])], paymentController.getReportPaymentBySlug); 
+route.get('/user/receipt/:idpayment', paymentController.getReceiptPayment); 
 
 module.exports = route;
