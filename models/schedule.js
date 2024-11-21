@@ -15,6 +15,7 @@ module.exports = (sequelize, DataTypes) => {
     packagetryout_id: DataTypes.INTEGER,
     tanggal: DataTypes.DATEONLY,
     waktu: DataTypes.TIME,
+    deletedAt: DataTypes.DATE,
   }, {
     sequelize,
     modelName: 'Schedule',
