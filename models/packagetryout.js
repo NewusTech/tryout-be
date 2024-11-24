@@ -17,6 +17,12 @@ module.exports = (sequelize, DataTypes) => {
         Package_tryout.hasMany(models.Question_form_num, {
             foreignKey: 'packagetryout_id',
         });
+        Package_tryout.hasOne(models.Setting_sertifikat, {
+          foreignKey: 'packagetryout_id',
+        });
+        Package_tryout.hasMany(models.Bank_package, {
+          foreignKey: 'packagetryout_id',
+        });
     }
   }
   Package_tryout.init({
