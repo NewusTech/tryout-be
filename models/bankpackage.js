@@ -11,6 +11,9 @@ module.exports = (sequelize, DataTypes) => {
         Bank_package.belongsTo(models.Bank_soal, {
             foreignKey: 'banksoal_id',
         });
+        Bank_package.belongsTo(models.Package_tryout, {
+          foreignKey: 'packagetryout_id', 
+        });
     }
   }
   Bank_package.init({
