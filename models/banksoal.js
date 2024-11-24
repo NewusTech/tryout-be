@@ -8,12 +8,15 @@ module.exports = (sequelize, DataTypes) => {
         Bank_soal.belongsTo(models.Type_question, {
             foreignKey: 'typequestion_id',
         });
+        Bank_soal.hasMany(models.Question_form, {
+          foreignKey: 'banksoal_id',
+        });
+        
     }
   }
   Bank_soal.init({
     title: DataTypes.STRING,
-    typequestion_id: DataTypes.INTEGER,
-    deletedAt: DataTypes.DATE
+    typequestion_id: DataTypes.INTEGER
   }, {
     sequelize,
     modelName: 'Bank_soal',
