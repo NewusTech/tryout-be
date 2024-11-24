@@ -1,9 +1,9 @@
 const { response } = require('../helpers/response.formatter');
 
-const { Package_tryout, Question_form, Bank_soal, sequelize } = require('../models');
+const { Package_tryout, Question_form, Question_form_input, Question_form_num, Bank_soal, Bank_package, Type_question, sequelize } = require('../models');
 require('dotenv').config()
 
-const { Op } = require('sequelize');
+const { Op, Sequelize } = require('sequelize');
 const Validator = require("fastest-validator");
 const v = new Validator();
 
@@ -212,47 +212,133 @@ module.exports = {
         }
       },
    
-    
-    
     //mendapatkan semua form berdasarkan paket tryout
     getFormByPackage: async (req, res) => {
+        const { packagetryout_id } = req.params;
+        const userinfo_id = 3; // Hardcode userinfo_id untuk saat ini
         try {
-            const { packagetryout_id } = req.params;
-    
-            let formWhereCondition = {
-                tipedata: {
-                    [Op.ne]: "file"
-                },
-                status: true
-            };
-    
-            if (req.user.role === 'User') {
-                formWhereCondition.status = true;
-            }
-    
-            let questionData = await Package_tryout.findOne({
-                where: {
-                    id: packagetryout_id,
-                    deletedAt: null
-                },
-                attributes: ['title', 'slug', 'description'],
-                include: [{
-                    model: Question_form,
-                    attributes: { exclude: ['createdAt', 'updatedAt'] },
-                    where: formWhereCondition,
-                    required: false,
-                }],
-                order: [[{ model: Question_form }, 'id', 'ASC']]
+            // Ambil data Package_tryout
+            const data = await Package_tryout.findOne({
+                where: { id: packagetryout_id },
+                attributes: ['id', 'title', 'slug'],
+                include: [
+                    {
+                        model: Bank_package,
+                        attributes: ['id', 'packagetryout_id', 'banksoal_id'],
+                        include: [
+                            {
+                                model: Bank_soal,
+                                attributes: ['id', 'title', 'typequestion_id'],
+                                include: [
+                                    {
+                                        model: Type_question,
+                                        attributes: ['name'],
+                                    },
+                                    {
+                                        model: Question_form,
+                                        attributes: ['id', 'field', 'tipedata', 'datajson'],
+                                    }
+                                ]
+                            },
+                        ],
+                    },
+                ],
             });
     
-            if (!questionData) {
-                return res.status(404).json(response(404, 'Package tryout not found'));
+            if (!data) {
+                return res.status(404).json({
+                    code: 404,
+                    message: 'Package tryout not found',
+                    data: null,
+                });
             }
     
-            res.status(200).json(response(200, 'Success get question with forms', questionData));
-        } catch (err) {
-            res.status(500).json(response(500, 'Internal server error', err));
-            console.log(err);
+            // Ambil Data Question_form_num berdasarkan userinfo_id
+            const questionSkor = await Question_form_num.findOne({
+                where: { userinfo_id },
+                attributes: ['id', 'userinfo_id'],
+            });
+    
+            if (!questionSkor) {
+                return res.status(404).json({
+                    code: 404,
+                    message: 'Question form number not found for user',
+                    data: null,
+                });
+            }
+    
+            // Ambil Data Jawaban Pengguna berdasarkan questionformnum_id
+            const questionUser = await Question_form_input.findAll({
+                where: { questionformnum_id: questionSkor.id },
+                attributes: ['data', 'questionform_id'],
+            });
+    
+            // Gabungkan Soal dengan Jawaban
+            const questionsWithAnswers = data.Bank_packages.map((bankPackage) => {
+                return bankPackage.Bank_soal.Question_forms.map((questionForm) => {
+                    // Cari jawaban dari pengguna berdasarkan questionform_id
+                    const userAnswer = questionUser.find(
+                        (answer) => answer.questionform_id === questionForm.id
+                    );
+    
+                    // Gabungkan data soal dan jawaban pengguna
+                    return {
+                        id: questionForm.id, // Menyertakan id soal
+                        field: questionForm.field, // Menyertakan field soal
+                        tipedata: questionForm.tipedata, // Menyertakan tipe data soal
+                        datajson: questionForm.datajson, // Menyertakan datajson soal
+                        answer: userAnswer ? userAnswer.data : null, // Menyertakan jawaban pengguna atau null
+                    };
+                });
+            });
+    
+            // Membuat struktur data sesuai dengan yang diinginkan untuk dikembalikan
+            const response = {
+                code: 200,
+                message: 'Success get question form with user answers',
+                data: {
+                    id: data.id,
+                    title: data.title,
+                    slug: data.slug,
+                    Bank_packages: data.Bank_packages.map((bankPackage) => {
+                        return {
+                            id: bankPackage.id,
+                            packagetryout_id: bankPackage.packagetryout_id,
+                            banksoal_id: bankPackage.banksoal_id,
+                            Bank_soal: {
+                                id: bankPackage.Bank_soal.id,
+                                title: bankPackage.Bank_soal.title,
+                                typequestion_id: bankPackage.Bank_soal.typequestion_id,
+                                Type_question: bankPackage.Bank_soal.Type_question,
+                                Question_forms: bankPackage.Bank_soal.Question_forms.map((questionForm) => {
+                                    // Gabungkan soal dengan jawaban pengguna
+                                    const userAnswer = questionUser.find(
+                                        (answer) => answer.questionform_id === questionForm.id
+                                    );
+                                    return {
+                                        id: questionForm.id,
+                                        field: questionForm.field,
+                                        tipedata: questionForm.tipedata,
+                                        datajson: questionForm.datajson,
+                                        answer: userAnswer ? userAnswer.data : null, // Menyertakan jawaban pengguna
+                                    };
+                                }),
+                            },
+                        };
+                    }),
+                },
+            };
+    
+            return res.status(200).json(response);
+    
+        } catch (error) {
+            console.error(error);
+    
+            return res.status(500).json({
+                code: 500,
+                message: 'Internal server error',
+                error: error.message,
+            });
         }
     },
 
