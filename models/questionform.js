@@ -14,11 +14,15 @@ module.exports = (sequelize, DataTypes) => {
       Question_form.hasMany(models.Question_form_input, {
         foreignKey: 'questionform_id',
       });
+      Question_form.belongsTo(models.Package_tryout, {
+        foreignKey: 'packagetryout_id',
+      });
     }
   }
   Question_form.init({
     field: DataTypes.STRING,
     tipedata: DataTypes.STRING,
+    image: DataTypes.STRING,
     datajson: DataTypes.JSON,
     banksoal_id: DataTypes.INTEGER,
     status: DataTypes.BOOLEAN,
