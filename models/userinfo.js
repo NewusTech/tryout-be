@@ -14,6 +14,9 @@ module.exports = (sequelize, DataTypes) => {
       User_info.belongsTo(models.Kota, {
         foreignKey: 'kota_id',
       });
+      User_info.hasMany(models.Payment, {
+        foreignKey: 'userinfo_id',
+      });
     }
   }
   User_info.init({
