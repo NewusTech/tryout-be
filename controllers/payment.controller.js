@@ -190,6 +190,10 @@ module.exports = {
                     {
                         model: Type_payment,
                         attributes: ['id', 'title'],
+                    },
+                    {
+                        model: User_info,
+                        attributes: ['id', 'name'],
                     }
                 ]
             });
@@ -197,60 +201,6 @@ module.exports = {
             if (!payment) {
                 return res.status(404).send('Data tidak ditemukan');
             }
-
-            // const idforminput = req.params.idforminput ?? null;
-            // let getdatauser, userJabatan, userPangkat, dataPangkat;
-
-            // if (idforminput) {
-            //     getdatauser = await Layanan_form_num.findOne({
-            //         where: {
-            //           id: req.params.idforminput,
-            //         },
-            //         attributes: ['id', 'userinfo_id', 'sign'],
-            //         include: [
-            //           {
-            //             model: User_info,
-            //             attributes: ['id', 'name', 'alamat', 'nik', 'nip', 'tempat_lahir', 'tgl_lahir'],
-            //             include: [
-            //                 {
-            //                     model: User,
-            //                     attributes: ['id'],
-            //                 }
-            //             ]
-            //           }
-            //         ]
-            //       });
-            // }
-
-            // if (getdatauser && getdatauser.User_info) {
-            //     userJabatan = await User_jabatan.findOne({
-            //         where: {
-            //             user_id: getdatauser.User_info.id
-            //         },
-            //         attributes: ['nama_jabatan'],
-            //         order: [['id', 'DESC']]
-            //     });
-            
-            //     if (getdatauser && getdatauser.User_info) {
-            //         userPangkat = await User_kepangkatan.findOne({
-            //             where: {
-            //                 user_id: getdatauser.User_info.id
-            //             },
-            //             attributes: ['pangkat_id'],
-            //             order: [['id', 'DESC']]
-            //         });
-                
-            //         if (userPangkat) {
-            //             // Ambil data pangkat berdasarkan pangkat_id yang diambil dari user_kepangkatan
-            //             dataPangkat = await Pangkat.findOne({
-            //                 where: {
-            //                     id: userPangkat.pangkat_id
-            //                 },
-            //                 attributes: ['nama']
-            //             });
-            //         }
-            //     }                
-            // }
 
             // Baca template HTML
             const templatePath = path.resolve(__dirname, '../views/receipt_template.html');
@@ -272,8 +222,11 @@ module.exports = {
             htmlContent = htmlContent.replace('{{tanggal}}',tanggalInfo);
             htmlContent = htmlContent.replace('{{time}}', waktuInfo);
             htmlContent = htmlContent.replace('{{pricePackage}}', payment?.price ?? '');
+            htmlContent = htmlContent.replace('{{price}}', payment?.price ?? '');
             htmlContent = htmlContent.replace('{{status}}', statusText ?? '');
            
+            htmlContent = htmlContent.replace('{{nameUser}}', payment?.User_info?.name ?? '');
+
             // Jalankan Puppeteer dan buat PDF
             const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
             const page = await browser.newPage();
