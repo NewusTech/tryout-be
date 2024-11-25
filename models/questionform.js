@@ -22,7 +22,7 @@ module.exports = (sequelize, DataTypes) => {
   Question_form.init({
     field: DataTypes.STRING,
     tipedata: DataTypes.STRING,
-    image: DataTypes.STRING,
+    // image: DataTypes.STRING,
     datajson: DataTypes.JSON,
     banksoal_id: DataTypes.INTEGER,
     status: DataTypes.BOOLEAN,
