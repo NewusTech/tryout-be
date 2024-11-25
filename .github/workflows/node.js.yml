@@ -1,0 +1,45 @@
+name: CI CD tryout-backend
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: self-hosted
+    strategy:
+      matrix:
+        node-version: [20]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+    - name: Git pull
+      run: |
+          cd /home/newus-backend-tryout/htdocs/backend-tryout.newus.id
+          git pull
+    - name: Run migration if present
+      run: |
+          cd /home/newus-backend-tryout/htdocs/backend-tryout.newus.id
+          npx sequelize-cli db:migrate
+    - name: Run NPM
+      run: npm install
+    - name : restart PM2
+      run : |
+          APP_NAME="backend-tryout.newus.id"
+          APP_ID="24"
+          if pm2 restart $APP_NAME; then
+            echo "Successfully restarted app with name $APP_NAME"
+          else
+            echo "Failed to restart app with name $APP_NAME, trying with ID $APP_ID"
+            if pm2 restart $APP_ID; then
+              echo "Successfully restarted app with ID $APP_ID"
+            else
+              echo "Failed to restart app with both name and ID"
+              exit 1
+            fi
+          fi
