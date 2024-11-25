@@ -11,85 +11,6 @@ module.exports = {
 
     // QUESTION BANK
 
-    //membuat question form
-    createQuestionForm: async (req, res) => {
-        try {
-
-            //membuat schema untuk validasi
-            const schema = {
-                field: {
-                    type: "string",
-                    min: 1,
-                },
-                tipedata: {
-                    type: "string",
-                    min: 1,
-                    optional: true
-                },
-                status: {
-                    type: "boolean",
-                    optional: true
-                },
-                package_tryout_id: {
-                    type: "number",
-                    optional: true
-                },
-                type_question_id: {
-                    type: "number",
-                    optional: true
-                },
-                datajson: {
-                    type: "array",
-                    items: {
-                        type: "object",
-                        properties: {
-                            id: { type: "number" },
-                            key: { type: "string" }
-                        },
-                        required: ["id", "key"]
-                    },
-                    optional: true
-                },
-                correct_answer: {
-                    type: "string",
-                    min: 1,
-                },
-                discussion: {
-                    type: "string",
-                    min: 1,
-                },
-            }
-
-            //buat object question form
-            let questionformCreateObj = {
-                field: req.body.field,
-                tipedata: req.body.tipedata,
-                status: req.body.status !== undefined ? Boolean(req.body.status) : true, 
-                package_tryout_id: req.body.package_tryout_id !== undefined ? Number(req.body.package_tryout_id) : null,
-                type_question_id: req.body.type_question_id !== undefined ? Number(req.body.type_question_id) : null,
-                datajson: req.body.datajson || null,
-                correct_answer: req.body.correct_answer,
-                discussion: req.body.discussion
-            }
-
-            //validasi menggunakan module fastest-validator
-            const validate = v.validate(questionformCreateObj, schema);
-            if (validate.length > 0) {
-                res.status(400).json(response(400, 'validation failed', validate));
-                return;
-            }
-
-            //buat question form
-            let questionformCreate = await Question_form.create(questionformCreateObj);
-
-            //response menggunakan helper response.formatter
-            res.status(201).json(response(201, 'success create question form', questionformCreate));
-        } catch (err) {
-            res.status(500).json(response(500, 'internal server error', err));
-            console.log(err);
-        }
-    },
-
     //membuat question form multi
     createMultiQuestionForm: async (req, res) => {
         const transaction = await sequelize.transaction();
@@ -283,11 +204,11 @@ module.exports = {
     
                     // Gabungkan data soal dan jawaban pengguna
                     return {
-                        id: questionForm.id, // Menyertakan id soal
-                        field: questionForm.field, // Menyertakan field soal
-                        tipedata: questionForm.tipedata, // Menyertakan tipe data soal
-                        datajson: questionForm.datajson, // Menyertakan datajson soal
-                        answer: userAnswer ? userAnswer.data : null, // Menyertakan jawaban pengguna atau null
+                        id: questionForm.id,
+                        field: questionForm.field,
+                        tipedata: questionForm.tipedata,
+                        datajson: questionForm.datajson,
+                        answer: userAnswer ? userAnswer.data : null,
                     };
                 });
             });
@@ -320,7 +241,7 @@ module.exports = {
                                         field: questionForm.field,
                                         tipedata: questionForm.tipedata,
                                         datajson: questionForm.datajson,
-                                        answer: userAnswer ? userAnswer.data : null, // Menyertakan jawaban pengguna
+                                        answer: userAnswer ? userAnswer.data : null,
                                     };
                                 }),
                             },
@@ -349,7 +270,9 @@ module.exports = {
             let questionformGets = await Question_form.findAll({
                 where: {
                     status: true
-                }});
+                },
+                attributes: ['id', 'field', 'tipedata', 'datajson', 'banksoal_id', 'status', 'correct_answer', 'discussion', 'createdAt', 'updatedAt'] // Hapus packagetryout_id
+            });
             
 
             //response menggunakan helper response.formatter
@@ -370,6 +293,7 @@ module.exports = {
                     id: req.params.id,
                     status: true
                 },
+                attributes: ['id', 'field', 'tipedata', 'datajson', 'banksoal_id', 'status', 'correct_answer', 'discussion', 'createdAt', 'updatedAt'] 
             });
 
             if (req.user.role !== 'Super Admin') {

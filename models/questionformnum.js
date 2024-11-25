@@ -17,6 +17,7 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   Question_form_num.init({
+    no_ujian: DataTypes.STRING,
     userinfo_id: DataTypes.INTEGER,
     packagetryout_id: DataTypes.INTEGER,
     sertifikat: DataTypes.STRING,

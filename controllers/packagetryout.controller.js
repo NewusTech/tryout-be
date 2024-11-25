@@ -1,5 +1,12 @@
 const { response } = require("../helpers/response.formatter");
-const { Package_tryout, Type_package, Bank_package, sequelize} = require("../models");
+const {
+  Package_tryout,
+  Type_package,
+  Type_question,
+  Bank_package,
+  Bank_soal,
+  sequelize,
+} = require("../models");
 require("dotenv").config();
 const slugify = require("slugify");
 const Validator = require("fastest-validator");
@@ -7,7 +14,7 @@ const v = new Validator();
 const fs = require("fs");
 const path = require("path");
 const { generatePagination } = require("../pagination/pagination");
-const { Op } = require('sequelize');
+const { Op, Sequelize } = require("sequelize");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const logger = require("../errorHandler/logger");
 const { duration } = require("moment-timezone");
@@ -33,9 +40,9 @@ module.exports = {
         price: { type: "string", optional: true },
         typepackage_id: { type: "number", optional: true },
         total_question: { type: "string", optional: true },
-        banksoals: { type: "array", optional: true }
+        banksoals: { type: "array", optional: true },
       };
-  
+
       let packageCreateObj = {
         title: req.body.title,
         slug: slugify(req.body.title, { lower: true }),
@@ -44,16 +51,18 @@ module.exports = {
         price: req.body.price,
         total_question: req.body.total_question,
         typepackage_id:
-          req.body.typepackage_id !== undefined ? Number(req.body.typepackage_id) : null,
+          req.body.typepackage_id !== undefined
+            ? Number(req.body.typepackage_id)
+            : null,
       };
-  
+
       // Validasi input
       const validate = v.validate(packageCreateObj, schema);
       if (validate.length > 0) {
         res.status(400).json(response(400, "Validation failed", validate));
         return;
       }
-  
+
       // Cek apakah slug sudah terdaftar
       let dataGets = await Package_tryout.findOne({
         where: {
@@ -65,36 +74,39 @@ module.exports = {
         res.status(409).json(response(409, "Slug already registered"));
         return;
       }
-  
-      // Buat paket tryout
-      let packageCreate = await Package_tryout.create(packageCreateObj, { transaction });
-  
-      // Jika ada banksoals dalam body request, hubungkan bank soal dengan paket tryout
-      // Jika ada banksoals dalam body request, hubungkan bank soal dengan paket tryout
-if (req.body.banksoals && Array.isArray(req.body.banksoals)) {
-  for (let banksoal of req.body.banksoals) {
-    await Bank_package.create({
-      packagetryout_id: packageCreate.id,
-      banksoal_id: banksoal.id,
-    }, { transaction });
-  }
-}
 
-  
+      // Buat paket tryout
+      let packageCreate = await Package_tryout.create(packageCreateObj, {
+        transaction,
+      });
+
+      if (req.body.banksoals && Array.isArray(req.body.banksoals)) {
+        for (let banksoal of req.body.banksoals) {
+          await Bank_package.create(
+            {
+              packagetryout_id: packageCreate.id,
+              banksoal_id: banksoal.id,
+            },
+            { transaction }
+          );
+        }
+      }
+
       // Commit transaksi
       await transaction.commit();
-  
+
       // Response menggunakan helper response.formatter
       res
         .status(201)
-        .json(response(201, "Successfully created package tryout", packageCreate));
+        .json(
+          response(201, "Successfully created package tryout", packageCreate)
+        );
     } catch (err) {
       await transaction.rollback();
       res.status(500).json(response(500, "Internal server error", err));
       console.log(err);
     }
   },
-  
 
   //get semua data paket tryout
   getPackageTryout: async (req, res) => {
@@ -109,13 +121,13 @@ if (req.body.banksoals && Array.isArray(req.body.banksoals)) {
       const offset = (page - 1) * limit;
       let packageGets;
       let totalCount;
-  
+
       const whereCondition = {};
-  
+
       if (packagetryout_id) {
         whereCondition.id = packagetryout_id;
       }
-  
+
       if (search) {
         whereCondition[Op.or] = [
           {
@@ -123,24 +135,33 @@ if (req.body.banksoals && Array.isArray(req.body.banksoals)) {
           },
         ];
       }
-  
+
       // Menampilkan data yang dihapus jika parameter showDeleted true
       if (showDeleted) {
         whereCondition.deletedAt = { [Op.not]: null };
       } else {
         whereCondition.deletedAt = null;
       }
-  
+
       // Filter berdasarkan bulan dan tahun (berdasarkan createdAt)
       if (month && year) {
         whereCondition.createdAt = {
           [Op.and]: [
-            Sequelize.where(Sequelize.fn('MONTH', Sequelize.col('Type_package.createdAt')), month),
-            Sequelize.where(Sequelize.fn('YEAR', Sequelize.col('Type_package.createdAt')), year),
+            Sequelize.where(
+              Sequelize.fn("MONTH", Sequelize.col("Type_package.createdAt")),
+              month
+            ),
+            Sequelize.where(
+              Sequelize.fn("YEAR", Sequelize.col("Type_package.createdAt")),
+              year
+            ),
           ],
         };
       } else if (year) {
-        whereCondition.createdAt = Sequelize.where(Sequelize.fn('YEAR', Sequelize.col('Type_package.createdAt')), year);
+        whereCondition.createdAt = Sequelize.where(
+          Sequelize.fn("YEAR", Sequelize.col("Type_package.createdAt")),
+          year
+        );
       }
 
       [packageGets, totalCount] = await Promise.all([
@@ -160,7 +181,7 @@ if (req.body.banksoals && Array.isArray(req.body.banksoals)) {
           where: whereCondition,
         }),
       ]);
-  
+
       // Modifikasi hasil untuk mencocokkan struktur yang diinginkan
       const modifiedPackageGets = packageGets.map((package) => {
         const { Type_package, ...otherData } = package.dataValues;
@@ -169,18 +190,36 @@ if (req.body.banksoals && Array.isArray(req.body.banksoals)) {
           Type_package_name: Type_package?.name,
         };
       });
-  
-      const pagination = generatePagination( totalCount, page, limit, "/api/user/package/get");
-  
-      res.status(200).json({status: 200, message: "success get package tryout", data: modifiedPackageGets, pagination: pagination,});
+
+      const pagination = generatePagination(
+        totalCount,
+        page,
+        limit,
+        "/api/user/package/get"
+      );
+
+      res
+        .status(200)
+        .json({
+          status: 200,
+          message: "success get package tryout",
+          data: modifiedPackageGets,
+          pagination: pagination,
+        });
     } catch (err) {
-      res.status(500).json({status: 500, message: "internal server error", error: err.message, });
+      res
+        .status(500)
+        .json({
+          status: 500,
+          message: "internal server error",
+          error: err.message,
+        });
       console.log(err);
       logger.error(`Error : ${err}`);
       logger.error(`Error message: ${err.message}`);
     }
   },
-  
+
   //get semua data paket tryout by type
   getPackageByType: async (req, res) => {
     try {
@@ -194,7 +233,9 @@ if (req.body.banksoals && Array.isArray(req.body.banksoals)) {
       let packageGets;
       let totalCount;
 
-      let includeOptions = [{ model: Type_package, attributes: ["id", "name"] }];
+      let includeOptions = [
+        { model: Type_package, attributes: ["id", "name"] },
+      ];
 
       const whereCondition = {
         typepackage_id: typepackage_id,
@@ -275,14 +316,26 @@ if (req.body.banksoals && Array.isArray(req.body.banksoals)) {
         whereCondition.deletedAt = null;
       }
 
-      // if (data?.role === "Admin Instansi" || data?.role === "Super Admin" || data?.role === "Bupati" || data?.role === "Admin Verifikasi") {
-      // } else {
-      //     whereCondition.status = true;
-      // }
-
       let packageGet = await Package_tryout.findOne({
         where: whereCondition,
-        include: [{ model: Type_package, attributes: ["id", "name"] }],
+        include: [
+          {
+            model: Bank_package,
+            attributes: ["id", "packagetryout_id", "banksoal_id"],
+            include: [
+              {
+                model: Bank_soal,
+                attributes: ["id", "title", "typequestion_id"],
+                include: [
+                  {
+                    model: Type_question,
+                    attributes: ["name"],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
       });
 
       //cek jika paket tryout tidak ada
@@ -298,7 +351,9 @@ if (req.body.banksoals && Array.isArray(req.body.banksoals)) {
       };
       res
         .status(200)
-        .json(response(200, "success get package tryout by id", modifiedPackageGet));
+        .json(
+          response(200, "success get package tryout by id", modifiedPackageGet)
+        );
     } catch (err) {
       res.status(500).json(response(500, "internal server error", err));
       console.log(err);
@@ -307,18 +362,10 @@ if (req.body.banksoals && Array.isArray(req.body.banksoals)) {
 
   //update paket berdasarkan id
   updatePackage: async (req, res) => {
-    try {
-      let packageGet = await Package_tryout.findOne({
-        where: {
-          id: req.params.id,
-          deletedAt: null,
-        },
-      });
-      if (!packageGet) {
-        res.status(404).json(response(404, "package not found"));
-        return;
-      }
+    const transaction = await sequelize.transaction();
 
+    try {
+      // Validasi input schema
       const schema = {
         title: { type: "string" },
         description: { type: "string", optional: true },
@@ -326,6 +373,7 @@ if (req.body.banksoals && Array.isArray(req.body.banksoals)) {
         price: { type: "string", optional: true },
         typepackage_id: { type: "number", optional: true },
         total_question: { type: "string", optional: true },
+        banksoal: { type: "array", optional: true },
       };
 
       let packageUpdateObj = {
@@ -337,33 +385,100 @@ if (req.body.banksoals && Array.isArray(req.body.banksoals)) {
         duration: req.body.duration,
         price: req.body.price,
         total_question: req.body.total_question,
-        typepackage_id: req.body.typepackage_id,
+        typepackage_id:
+          req.body.typepackage_id !== undefined
+            ? Number(req.body.typepackage_id)
+            : null,
       };
 
+      // Validasi input menggunakan Validator
       const validate = v.validate(packageUpdateObj, schema);
       if (validate.length > 0) {
-        res.status(400).json(response(400, "validation failed", validate));
+        res.status(400).json(response(400, "Validation failed", validate));
         return;
       }
 
-      //update package
+      // Periksa apakah package ada
+      const packageGet = await Package_tryout.findOne({
+        where: {
+          id: req.params.id,
+          deletedAt: null,
+        },
+      });
+      if (!packageGet) {
+        res.status(404).json(response(404, "Package not found"));
+        return;
+      }
+
+      // Periksa apakah slug sudah digunakan (jika title diubah)
+      if (req.body.title) {
+        const existingSlug = await Package_tryout.findOne({
+          where: {
+            slug: packageUpdateObj.slug,
+            deletedAt: null,
+            id: { [Op.ne]: req.params.id }, // Pastikan bukan dari package yang sedang diupdate
+          },
+        });
+        if (existingSlug) {
+          res.status(409).json(response(409, "Slug already registered"));
+          return;
+        }
+      }
+
+      // Update package
       await Package_tryout.update(packageUpdateObj, {
         where: {
           id: req.params.id,
         },
+        transaction,
       });
 
-      let packageAfterUpdate = await Package_tryout.findOne({
+      // Update banksoals jika ad
+      if (req.body.banksoals && Array.isArray(req.body.banksoals)) {
+        // Hapus relasi banksoal lama
+        await Bank_package.destroy({
+          where: {
+            packagetryout_id: req.params.id,
+          },
+          transaction,
+        });
+
+        // Tambahkan relasi banksoal baru
+        for (let banksoal of req.body.banksoals) {
+          await Bank_package.create(
+            {
+              packagetryout_id: req.params.id,
+              banksoal_id: banksoal.id,
+            },
+            { transaction }
+          );
+        }
+      }
+
+      // Ambil data package setelah update
+      const packageAfterUpdate = await Package_tryout.findOne({
         where: {
           id: req.params.id,
         },
+        include: [
+          {
+            model: Bank_package,
+            include: [{ model: Bank_soal}],
+          },
+        ],
       });
-      res
-        .status(200)
-        .json(response(200, "success update package tryout", packageAfterUpdate));
-    } catch (err) {
-      res.status(500).json(response(500, "internal server error", err));
-      console.log(err);
+
+      // Commit transaksi
+      await transaction.commit();
+
+      // Response sukses
+      res.status(200).json(response(200,"Successfully updated package tryout", packageAfterUpdate)
+    );
+  } catch (err) {
+    // Rollback transaksi jika terjadi error
+    await transaction.rollback();
+    res.status(500).json(response(500, "Internal server error", err));
+    console.log(err);
     }
   },
 
@@ -396,5 +511,4 @@ if (req.body.banksoals && Array.isArray(req.body.banksoals)) {
       console.log(err);
     }
   },
-
 };
