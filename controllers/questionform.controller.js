@@ -160,7 +160,7 @@ module.exports = {
   //mendapatkan semua form berdasarkan paket tryout
   getFormByPackage: async (req, res) => {
     const { packagetryout_id } = req.params;
-    const userinfo_id = 3; // Hardcode userinfo_id untuk saat ini
+    const userinfo_id = 2;
     try {
       // Ambil data Package_tryout
       const data = await Package_tryout.findOne({
