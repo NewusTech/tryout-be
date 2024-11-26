@@ -27,8 +27,7 @@ app.use((err, req, res, next) => {
 
 app.use(error)
 
-app.use('/static', express.static('public'))
-
+app.use(express.static(path.join(__dirname, 'public')));
 //listen
 app.listen(process.env.PORT, () => {
     console.log(`server is running on port ${process.env.PORT} and url ${baseConfig.base_url}`);
