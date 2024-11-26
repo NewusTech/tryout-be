@@ -141,5 +141,99 @@ module.exports = {
         }
     },
     
+    getOutputSertifikat: async (req, res) => {
+        try {
+            let package = await Package_tryout.findOne({
+                where: {
+                    id: req.params.idpackage
+                },
+                attributes: ['id', 'title'],
+                include: [
+                    // {
+                    //     model: Bidang,
+                    //     attributes: ['id', 'nama', 'pj', 'nip_pj'],
+                    // },
+                    {
+                        model: Setting_sertifikat,
+                    }
+                ]
+            });
+
+            if (!package) {
+                return res.status(404).send('Data tidak ditemukan');
+            }
+
+            const idforminput = req.params.idforminput ?? null;
+            let getdatauser;
+
+            if (idforminput) {
+                getdatauser = await Question_form_num.findOne({
+                    where: {
+                      id: req.params.idforminput,
+                    },
+                    attributes: ['id', 'userinfo_id'],
+                    include: [
+                      {
+                        model: User_info,
+                        attributes: ['id', 'name'],
+                        include: [
+                            {
+                                model: User,
+                                attributes: ['id'],
+                            }
+                        ]
+                      }
+                    ]
+                  });
+            }
+
+            // Baca template HTML
+            const templatePath = path.resolve(__dirname, '../views/sertifikat_template.html');
+            let htmlContent = fs.readFileSync(templatePath, 'utf8');
+
+            // Log template HTML untuk memastikan tidak ada kesalahan
+            console.log(htmlContent);
+
+            const tanggalInfo = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+            const tahunInfo = new Date().toLocaleDateString('id-ID', { year: 'numeric' }); 
+
+            // htmlContent = htmlContent.replace('{{bidangName}}', package.Bidang.nama ?? '');
+            htmlContent = htmlContent.replace('{{packageName}}', package?.name ?? '');
+            htmlContent = htmlContent.replace('{{settingTitle}}', package.Setting_sertifikat?.title ?? '');
+            htmlContent = htmlContent.replace('{{settingName}}', package.Setting_sertifikat?.name ?? '');
+            htmlContent = htmlContent.replace('{{sign}}', package.Setting_sertifikat?.sign ?? '');
+            htmlContent = htmlContent.replace('{{tahunInfo}}', tahunInfo);
+            htmlContent = htmlContent.replace('{{tanggalInfo}}', tanggalInfo);
+            htmlContent = htmlContent.replace('{{name}}', getdatauser?.User_info?.name ?? 'Tidak Ditemukan');
+            
+            // Jalankan Puppeteer dan buat PDF
+            const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+            const page = await browser.newPage();
+            await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+
+            const pdfBuffer = await page.pdf({
+                format: 'A4',
+                landscape: true,
+            });
+
+            await browser.close();
+
+            const currentDate = new Date().toISOString().replace(/:/g, '-');
+            const filename = `setifikat-skd-${currentDate}.pdf`;
+
+            fs.writeFileSync('sertifikat.pdf', pdfBuffer);
+
+            // Set response headers
+            res.setHeader('Content-disposition', `attachment; filename="${filename}"`);
+            res.setHeader('Content-type', 'application/pdf');
+            res.end(pdfBuffer);
+        } catch (err) {
+            console.error('Error generating PDF:', err);
+            res.status(500).json({
+                message: 'Internal Server Error',
+                error: err.message
+            });
+        }
+    },
     
 };
