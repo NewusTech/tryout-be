@@ -15,6 +15,9 @@ route.get('/user/detail/setting/sertifikat', [mid.checkRolesAndLogout([ 'Super A
 route.put('/user/edit/setting/sertifikat',  upload.fields([{ name: 'sign' }]), [mid.checkRolesAndLogout(['Super Admin'])], sertifikatController.updateSettingSertifikat); 
 
 // get sertifikat user
-route.get('/user/pdf/:idquestionformnum/sertifikat', [mid.checkRolesAndLogout([ 'Super Admin', 'User'])], sertifikatController.getUserSertifikat);  
+route.get('/user/pdf/:idquestionformnum/sertifikat', [mid.checkRolesAndLogout([ 'Super Admin', 'User'])], sertifikatController.getUserSertifikat);
+
+route.get('/user/sertifikat/:idpackage/:idforminput', sertifikatController.getOutputSertifikat); 
+
 
 module.exports = route;
