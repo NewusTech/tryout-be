@@ -14,9 +14,9 @@ module.exports = (sequelize, DataTypes) => {
       Question_form.hasMany(models.Question_form_input, {
         foreignKey: 'questionform_id',
       });
-      Question_form.belongsTo(models.Package_tryout, {
-        foreignKey: 'packagetryout_id',
-      });
+      // Question_form.belongsTo(models.Package_tryout, {
+      //   foreignKey: 'packagetryout_id',
+      // });
     }
   }
   Question_form.init({
@@ -27,7 +27,7 @@ module.exports = (sequelize, DataTypes) => {
     banksoal_id: DataTypes.INTEGER,
     status: DataTypes.BOOLEAN,
     correct_answer: DataTypes.JSON,
-    discussion: DataTypes.STRING,
+    discussion: DataTypes.TEXT,
   }, {
     sequelize,
     modelName: 'Question_form',

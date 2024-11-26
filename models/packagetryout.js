@@ -11,9 +11,9 @@ module.exports = (sequelize, DataTypes) => {
         Package_tryout.belongsTo(models.Type_package, {
             foreignKey: 'typepackage_id',
         });
-        Package_tryout.hasMany(models.Question_form, {
-            foreignKey: 'packagetryout_id',
-        });
+        // Package_tryout.hasMany(models.Question_form, {
+        //     foreignKey: 'packagetryout_id',
+        // });
         Package_tryout.hasMany(models.Question_form_num, {
             foreignKey: 'packagetryout_id',
         });
