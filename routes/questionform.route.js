@@ -5,10 +5,11 @@ const mid = require('../middlewares/auth.middleware');
 const express = require('express');
 const route = express.Router();
 
-//get from by question
+//get question form
 route.get('/user/question/form/:packagetryout_id', [mid.checkRolesAndLogout(['Super Admin', 'User'])], questionformController.getFormByPackage);
 route.get('/user/bank/question/get', [mid.checkRolesAndLogout(['Super Admin', 'User'])], questionformController.getBankSoal); 
-route.get('/user/bank/question/get/:typequestion_id', [mid.checkRolesAndLogout(['Super Admin', 'User'])], questionformController.getBankSoalByType); 
+route.get('/user/bank/question/get/:typequestion_id', [mid.checkRolesAndLogout(['Super Admin', 'User'])], questionformController.getBankSoalByType);
+route.get('/user/question/get/:banksoal_id', [mid.checkRolesAndLogout(['Super Admin', 'User'])], questionformController.getFormByBankSoal); 
 
 route.post('/user/question/form/createmulti', [mid.checkRolesAndLogout(['Super Admin'])], questionformController.createMultiQuestionForm);
 route.put('/user/question/form/update/:id', [mid.checkRolesAndLogout([ 'Super Admin'])], questionformController.updateQuestionForm); 

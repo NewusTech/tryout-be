@@ -271,7 +271,7 @@ module.exports = {
             error: error.message,
         });
     }
-},
+  },
 
 
   //mendapatkan semua data question form
@@ -865,5 +865,68 @@ module.exports = {
       logger.error(`Error message: ${err.message}`);
     }
   },
+
+  //mendapatkan detail data soal by id bank soal
+  getFormByBankSoal: async (req, res) => {
+    const { banksoal_id } = req.params;
+
+    try {
+        // Ambil data Bank_soal
+        const data = await Bank_soal.findOne({
+            where: { id: banksoal_id },
+            attributes: ['id', 'title', 'typequestion_id'],
+            include: [
+                {
+                    model: Type_question,
+                    attributes: ['name'],
+                },
+                {
+                    model: Question_form,
+                    attributes: ['id', 'field', 'tipedata', 'datajson', 'discussion', 'correct_answer'],
+                },
+            ],
+        });
+
+        // Jika bank soal tidak ditemukan
+        if (!data) {
+            return res.status(404).json({
+                code: 404,
+                message: 'Bank soal not found',
+                data: null,
+            });
+        }
+
+        // Gabungkan data soal
+        const response = {
+            code: 200,
+            message: 'Success get question form by banksoal_id',
+            data: {
+                id: data.id,
+                title: data.title,
+                typequestion_id: data.typequestion_id,
+                Type_question: data.Type_question,
+                Question_forms: data.Question_forms.map((questionForm) => {
+                    return {
+                        id: questionForm.id,
+                        field: questionForm.field,
+                        tipedata: questionForm.tipedata,
+                        datajson: questionForm.datajson,
+                        correct_answer: questionForm.correct_answer,
+                        discussion: questionForm.discussion,
+                    };
+                }),
+            },
+        };
+        
+        return res.status(200).json(response);
+      } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+          code: 500,
+          message: 'Internal server error',
+          error: error.message,
+        });
+      }
+  }
   
 };
