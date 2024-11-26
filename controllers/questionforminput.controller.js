@@ -61,108 +61,197 @@ module.exports = {
     try {
         const idpackage = req.params.idpackage;
         const iduser = req.user.role === "User" ? req.user.userId : req.body.userId;
-        const statusinput = 1;
 
         if (!iduser) {
-            return res.status(403).json(response(403, "User must be login", []));
+            return res.status(403).json(response(403, "User must be logged in", []));
         }
 
         const { datainput } = req.body;
 
-        const today = new Date();
-        const todayStr = today.toISOString().split("T")[0];
+        if (!datainput || !Array.isArray(datainput)) {
+            throw new Error("Invalid input data format");
+        }
 
-        const tanggalFormat = today.toISOString().slice(2, 10).replace(/-/g, "");
-        const randomCode = crypto.randomBytes(14).toString("hex").toUpperCase();
-        const noUjian = `${randomCode}${tanggalFormat}`;
-
-        const countToday = await Question_form_num.count({
-            where: {
-                createdAt: {
-                    [Op.gte]: new Date(todayStr + "T00:00:00Z"),
-                    [Op.lte]: new Date(todayStr + "T23:59:59Z"),
-                },
-                packagetryout_id: idpackage,
-            },
+        let questionFormNum = await Question_form_num.findOne({
+            where: { userinfo_id: iduser, packagetryout_id: idpackage },
         });
 
-        let packageID = {
-            userinfo_id: Number(iduser),
-            packagetryout_id: Number(idpackage),
-            status: Number(statusinput),
-            no_ujian: noUjian,
-        };
+        if (!questionFormNum) {
+            const today = new Date().toISOString().split("T")[0];
+            const noUjian = `${crypto.randomBytes(4).toString("hex").toUpperCase()}${today.replace(/-/g, "")}`;
 
-        const createdQuestionformnum = await Question_form_num.create(packageID, { transaction });
-        const idforminput = createdQuestionformnum.id;
-        console.log("Created Question_form_num ID:", idforminput);
+            questionFormNum = await Question_form_num.create(
+                {
+                    userinfo_id: iduser,
+                    status: 1,
+                    no_ujian: noUjian,
+                    packagetryout_id: idpackage,
+                },
+                { transaction }
+            );
+        }
 
-        
-        const updatedDatainput = datainput.map((item) => ({
-            ...item,
-            questionformnum_id: idforminput,
-        }));
+        const idforminput = questionFormNum.id;
 
-        const createdQuestionforminput = await Question_form_input.bulkCreate(updatedDatainput, { transaction });
+        // Ambil semua jawaban pengguna sebelumnya
+        const previousAnswers = await Question_form_input.findAll({
+            where: { questionformnum_id: idforminput },
+        });
 
-        let correctAnswersCount = 0;
-        let totalPoints = 0; 
+        const scoreMapping = new Map();
+        const questionIds = datainput.map((item) => item.questionform_id);
+
+        const questions = await Question_form.findAll({
+            where: { id: { [Op.in]: questionIds } },
+        });
+
+        questions.forEach((q) => {
+            scoreMapping.set(q.id, q.correct_answer);
+        });
+
+        let totalPoints = parseFloat(questionFormNum.skor || 0);
 
         for (let item of datainput) {
             const { questionform_id, data } = item;
 
-            const question = await Question_form.findByPk(questionform_id);
-            if (!question) {
-                throw new Error(`Question with ID ${questionform_id} not found`);
-            }
+            const previousAnswer = previousAnswers.find(
+                (answer) => answer.questionform_id === questionform_id
+            );
 
-            let points = 0; 
+            const correctAnswer = scoreMapping.get(questionform_id);
 
-            
-            if (Array.isArray(question.correct_answer)) {
-                
-                const correctAnswers = question.correct_answer.filter(answer => answer.id === Number(data));
+            console.log(`Processing Question ID: ${questionform_id}`);
+            console.log(`User's New Answer: ${data}`);
+            console.log(`Correct Answer:`, correctAnswer);
 
-                if (correctAnswers.length > 0) {
-                    
-                    points = correctAnswers.reduce((total, answer) => total + (answer.point || 0), 0);
+            if (Array.isArray(correctAnswer)) {
+                // Ambil poin dari jawaban sebelumnya
+                const matchedPrevious = correctAnswer.find(
+                    (correct) => Number(correct.id) === Number(previousAnswer?.data)
+                );
+
+                // Ambil poin dari jawaban baru
+                const matchedNew = correctAnswer.find(
+                    (correct) => Number(correct.id) === Number(data)
+                );
+
+                if (matchedPrevious) {
+                    console.log(`Removing Points for Previous Answer: ${matchedPrevious.point || 0}`);
+                    totalPoints -= matchedPrevious.point || 0;
                 }
-            } else if (Number(question.correct_answer) === Number(data)) {
-                
-                points = 5;
+
+                if (matchedNew) {
+                    console.log(`Adding Points for New Answer: ${matchedNew.point || 0}`);
+                    totalPoints += matchedNew.point || 0;
+                }
+            } else if (!Array.isArray(correctAnswer)) {
+                if (Number(correctAnswer) === Number(previousAnswer?.data)) {
+                    console.log(`Removing 5 points for previous correct single answer.`);
+                    totalPoints -= 5; // Kurangi poin jika jawaban sebelumnya benar
+                }
+                if (Number(correctAnswer) === Number(data)) {
+                    console.log(`Adding 5 points for new correct single answer.`);
+                    totalPoints += 5; // Tambahkan poin jika jawaban baru benar
+                }
             }
 
-            
-            if (points > 0) {
-                correctAnswersCount += 1;
-                totalPoints += points;
+            // Update atau buat jawaban baru
+            if (previousAnswer) {
+                await Question_form_input.update(
+                    { data },
+                    {
+                        where: {
+                            id: previousAnswer.id,
+                        },
+                        transaction,
+                    }
+                );
+            } else {
+                await Question_form_input.create(
+                    {
+                        questionformnum_id: idforminput,
+                        questionform_id,
+                        data,
+                    },
+                    { transaction }
+                );
             }
         }
 
-       
-        const score = totalPoints; 
+        console.log("Final Total Points:", totalPoints);
 
+        // Update skor di Question_form_num
         await Question_form_num.update(
-            { skor: score.toFixed(2) },
+            { skor: totalPoints.toFixed(2) },
             { where: { id: idforminput }, transaction }
         );
 
+
         await transaction.commit();
 
-        res.status(201).json(response(201, "Success create question form input and calculate score", {
-            input: createdQuestionforminput,
-            score: score.toFixed(2),
-            no_ujian: noUjian
-        }));
+        setTimeout(async () => {
+          try {
+            console.log("Memanggil API generate PDF...");
+  
+            // Memanggil API generate PDF menggunakan idforminput yang baru saja dibuat
+            let apiURL = `${process.env.SERVER_URL}/user/sertifikat/${idpackage}/${idforminput}`;
+            console.log(`URL: ${apiURL}`);
+  
+            const responsePDF = await axios.get(apiURL, {
+              responseType: "arraybuffer",
+              headers: { "Cache-Control": "no-cache" },
+            });
+  
+            const pdfBuffer = responsePDF.data;
+            console.log("PDF berhasil diambil dari API.");
+  
+            // Upload PDF ke AWS S3
+            const timestamp = new Date().getTime();
+            const uniqueFileName = `${timestamp}-${idforminput}.pdf`;
+  
+            const uploadParams = {
+              Bucket: process.env.AWS_BUCKET,
+              Key: `${process.env.PATH_AWS}/sertifikat/${uniqueFileName}`,
+              Body: pdfBuffer,
+              ACL: "public-read",
+              ContentType: "application/pdf",
+            };
+  
+            const command = new PutObjectCommand(uploadParams);
+            await s3Client.send(command);
+  
+            const sertifikatPath = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
+  
+            console.log("PDF berhasil di-upload ke AWS S3:", sertifikatPath);
+  
+            // Update field sertifikat di tabel Layanan_form_num
+            const [affectedRows] = await Question_form_num.update(
+              { sertifikat: sertifikatPath },
+              { where: { id: idforminput } }
+            );
+  
+            if (affectedRows === 0) {
+              console.error("Gagal update field sertifikat.");
+            } else {
+              console.log("Field sertifikat berhasil diupdate.");
+            }
+          } catch (error) {
+            console.error("Error fetching or uploading PDF:", error);
+          }
+        }, 5000); // Set timeout 1 detik (1000 ms) untuk memberi waktu sebelum memanggil API
+
+        res.status(200).json(
+            response(200, "Success input answer", {
+                score: totalPoints.toFixed(2),
+                inputCount: datainput.length,
+            })
+        );
     } catch (err) {
         await transaction.rollback();
-        res.status(500).json(response(500, "Internal server error", err));
-        console.error(err);
+        console.error("Error:", err);
+        res.status(500).json(response(500, "Internal server error", err.message));
     }
   },
-
-
-
 
   //get input form user
   getDetailInputForm: async (req, res) => {
