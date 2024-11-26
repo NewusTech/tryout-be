@@ -653,15 +653,13 @@ module.exports = {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
       const offset = (page - 1) * limit;
-      let packageGets;
-      let totalCount;
-
+  
       const whereCondition = {};
-
+  
       if (banksoal_id) {
         whereCondition.id = banksoal_id;
       }
-
+  
       if (search) {
         whereCondition[Op.or] = [
           {
@@ -669,7 +667,7 @@ module.exports = {
           },
         ];
       }
-
+  
       // Filter berdasarkan bulan dan tahun (berdasarkan createdAt)
       if (month && year) {
         whereCondition.createdAt = {
@@ -690,8 +688,9 @@ module.exports = {
           year
         );
       }
-
-      [packageGets, totalCount] = await Promise.all([
+  
+      // Ambil data bank soal
+      const [packageGets, totalCount] = await Promise.all([
         Bank_soal.findAll({
           where: whereCondition,
           include: [
@@ -708,25 +707,47 @@ module.exports = {
           where: whereCondition,
         }),
       ]);
-
-      // Modifikasi hasil untuk mencocokkan struktur yang diinginkan
+  
+      // Ambil total soal berdasarkan banksoal_id
+      const banksoalIds = packageGets.map((pkg) => pkg.id);
+  
+      const questionCounts = await Question_form.findAll({
+        attributes: [
+          "banksoal_id",
+          [Sequelize.fn("COUNT", Sequelize.col("id")), "total_soal"],
+        ],
+        where: {
+          banksoal_id: {
+            [Op.in]: banksoalIds,
+          },
+        },
+        group: ["banksoal_id"],
+      });
+  
+      // Map jumlah soal berdasarkan banksoal_id
+      const questionCountMap = questionCounts.reduce((map, item) => {
+        map[item.banksoal_id] = parseInt(item.dataValues.total_soal, 10);
+        return map;
+      }, {});
+  
       const modifiedPackageGets = packageGets.map((package) => {
         const { Type_question, ...otherData } = package.dataValues;
         return {
           ...otherData,
           Type_question_name: Type_question?.name,
+          Total_question: questionCountMap[package.id] || 0,
         };
       });
-
+  
       const pagination = generatePagination(
         totalCount,
         page,
         limit,
         "/api/user/bank/question/get"
       );
-
+  
       res.status(200).json({
-        status: 200,
+        status: 200, 
         message: "success get bank soal",
         data: modifiedPackageGets,
         pagination: pagination,
