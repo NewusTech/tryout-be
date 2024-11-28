@@ -5,6 +5,11 @@ const mid = require('../middlewares/auth.middleware');
 const express = require('express');
 const route = express.Router();
 
+const multer = require('multer');
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
 //get question form
 route.get('/user/question/form/:packagetryout_id', [mid.checkRolesAndLogout(['Super Admin', 'User'])], questionformController.getFormByPackage);
 route.get('/user/bank/question/get', [mid.checkRolesAndLogout(['Super Admin', 'User'])], questionformController.getBankSoal); 
@@ -20,5 +25,7 @@ route.delete('/user/question/form/delete/:id', [mid.checkRolesAndLogout(['Super 
 route.get('/user/question/formulir/get', [mid.checkRolesAndLogout(['Super Admin', 'User'])], questionformController.getQuestionForm); 
 //get form by id
 route.get('/user/question/formulir/get/:id', [mid.checkRolesAndLogout(['Super Admin', 'User'])], questionformController.getQuestionFormById); 
+
+route.post('/user/import/bank/question', [mid.checkRolesAndLogout(['Super Admin'])], upload.single('file'), questionformController.importBankSoal);
 
 module.exports = route;
