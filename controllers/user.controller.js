@@ -204,6 +204,8 @@ module.exports = {
                 return;
             }
 
+            const typePackage = userinfo.User.Type_package || { id: null, name: null };
+
             // membuat token jwt
             let token = jwt.sign({
                 userId: userinfo.id,
@@ -217,8 +219,8 @@ module.exports = {
             res.status(200).json(response(200, 'login success', { 
                 token: token,
                 username: userinfo.name,
-                typepackage_id : userinfo.User.Type_package.id,
-                typepackage_name : userinfo.User.Type_package.name,
+                typepackage_id : typePackage.id,
+                typepackage_name : typePackage.name,
              }));
 
         } catch (err) {
