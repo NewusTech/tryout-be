@@ -167,14 +167,18 @@ module.exports = {
 
             let userinfo = await User_info.findOne({
                 where: whereClause,
-                attributes: ['email', 'id', 'telepon'],
+                attributes: ['name', 'email', 'id', 'telepon'],
                 include: [
                     {
                         model: User,
-                        attributes: ['password', 'id', 'role_id'],
+                        attributes: ['password', 'id', 'role_id', 'typepackage_id'],
                         include: [
                             {
                                 model: Role,
+                                attributes: ['id', 'name']
+                            },
+                            {
+                                model: Type_package,
                                 attributes: ['id', 'name']
                             },
                             {
@@ -210,7 +214,12 @@ module.exports = {
                 expiresIn: 864000 // time expired 
             });
 
-            res.status(200).json(response(200, 'login success', { token: token }));
+            res.status(200).json(response(200, 'login success', { 
+                token: token,
+                username: userinfo.name,
+                typepackage_id : userinfo.User.Type_package.id,
+                typepackage_name : userinfo.User.Type_package.name,
+             }));
 
         } catch (err) {
 
