@@ -15,6 +15,8 @@ const { generatePagination } = require("../pagination/pagination");
 const { Op, Sequelize } = require("sequelize");
 const Validator = require("fastest-validator");
 const v = new Validator();
+const ExcelJS = require('exceljs');
+const xlsx = require("xlsx");
 
 module.exports = {
   // QUESTION BANK
@@ -272,7 +274,6 @@ module.exports = {
         });
     }
   },
-
 
   //mendapatkan semua data question form
   getQuestionForm: async (req, res) => {
@@ -927,6 +928,113 @@ module.exports = {
           error: error.message,
         });
       }
-  }
+  },
+
+  //import data bank soal ke sistem
+  importBankSoal: async (req, res) => {
+    const transaction = await sequelize.transaction();
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                status: 400,
+                message: "No file uploaded. Please upload an Excel file.",
+            });
+        }
+
+        // Membaca file Excel
+        const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+        const sheetName = workbook.SheetNames[0]; // Ambil sheet pertama
+        const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        if (!sheetData || sheetData.length === 0) {
+            return res.status(400).json({
+                status: 400,
+                message: "Excel file is empty or invalid format.",
+            });
+        }
+
+        const bankSoalTitle = sheetData[0]?.banksoal_title;
+        const typeQuestionId = sheetData[0]?.typequestion_id;
+
+        if (!bankSoalTitle || !typeQuestionId) {
+            return res.status(400).json({
+                status: 400,
+                message: "Missing bank soal information in the Excel file.",
+            });
+        }
+
+        // Buat Bank_soal
+        const createdBankSoal = await Bank_soal.create(
+            {
+                title: bankSoalTitle,
+                typequestion_id: typeQuestionId,
+            },
+            { transaction }
+        );
+
+        let createdQuestions = [];
+        let errors = [];
+
+        // Proses setiap baris sebagai Question_form
+        for (let row of sheetData) {
+            try {
+                // Parsing correct_answer dan datajson
+                const correctAnswer = JSON.parse(row.correct_answer || "[]");
+                const datajson = JSON.parse(row.datajson || "[]");
+
+                // Buat Question_form
+                const questionForm = await Question_form.create(
+                    {
+                        field: row.field,
+                        tipedata: row.tipedata,
+                        status: row.status !== undefined ? Boolean(row.status) : true,
+                        correct_answer: correctAnswer,
+                        discussion: row.discussion,
+                        datajson: datajson,
+                        banksoal_id: createdBankSoal.id, // Hubungkan dengan Bank_soal
+                    },
+                    { transaction }
+                );
+
+                createdQuestions.push(questionForm);
+            } catch (error) {
+                errors.push({
+                    row,
+                    error: error.message,
+                });
+            }
+        }
+        
+        if (errors.length > 0) {
+            await transaction.rollback();
+            return res.status(400).json({
+                status: 400,
+                message: "Some rows failed to process",
+                errors,
+            });
+        }
+
+        // Commit transaksi jika semua berhasil
+        await transaction.commit();
+
+        return res.status(201).json({
+            status: 201,
+            message: "Successfully imported bank soal and question forms",
+            data: {
+                bankSoal: createdBankSoal,
+                questionForms: createdQuestions,
+            },
+        });
+    } catch (err) {
+        // Rollback transaksi jika terjadi error
+        await transaction.rollback();
+        console.error(err);
+        return res.status(500).json({
+            status: 500,
+            message: "Internal server error",
+            error: err.message,
+        });
+    }
+  },
   
 };
