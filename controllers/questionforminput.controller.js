@@ -571,7 +571,7 @@ module.exports = {
           include: [
             {
               model: Package_tryout,
-              attributes: { exclude: ["createdAt", "updatedAt", "slug"] },
+              attributes: { include: ["slug", "title"] },
               include: [
                 {
                   model: Type_package,
@@ -585,11 +585,6 @@ module.exports = {
               attributes: ["name"],
               where: WhereClause3,
             },
-            // {
-            //   model: User_info,
-            //   as: "Adminupdate",
-            //   attributes: ["id", "name", "nip"],
-            // },
           ],
           limit: limit,
           offset: offset,
@@ -611,11 +606,6 @@ module.exports = {
               model: User_info,
               where: WhereClause3,
             },
-            // {
-            //   model: User_info,
-            //   as: "Adminupdate",
-            //   attributes: ["id", "name", "nik"],
-            // },
           ],
         }),
       ]);
@@ -625,10 +615,11 @@ module.exports = {
           id: data.id,
           userinfo_id: data?.userinfo_id,
           name: data?.User_info?.name,
-          status: data?.status,
+          skor: data?.skor,
           sertifikat: data?.sertifikat,
+          status: data?.status,
           packagetryout_id: data?.packagetryout_id,
-          package_name: data?.Package_tryout ? data?.Package_tryout?.name : null,
+          package_name: data?.Package_tryout ? data?.Package_tryout?.title : null,
           typepackage_id:
             data?.Package_tryout && data?.Package_tryout?.Type_package
               ? data?.Package_tryout?.Type_package.id
