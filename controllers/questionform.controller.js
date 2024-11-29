@@ -162,7 +162,7 @@ module.exports = {
   //mendapatkan semua form berdasarkan paket tryout
   getFormByPackage: async (req, res) => {
     const { packagetryout_id } = req.params;
-    const userinfo_id = req.user.role === "User" ? req.user.userId : null; // Ambil userinfo_id jika role adalah "User"
+    const userinfo_id = req.user.role === "User" ? req.user.userId : null;
 
     try {
         // Jika userinfo_id tidak valid (null), kembalikan error
@@ -225,6 +225,10 @@ module.exports = {
             });
         }
 
+        // Variabel untuk menghitung soal yang sudah terisi dan belum terisi
+        let total_filled = 0;
+        let total_unfilled = 0;
+
         // Gabungkan Soal dengan Jawaban
         const response = {
             code: 200,
@@ -248,17 +252,30 @@ module.exports = {
                                 const userAnswer = questionUser.find(
                                     (answer) => answer.questionform_id === questionForm.id
                                 );
+                                const isAnswered = userAnswer ? true : false;
+
+                                // Hitung total sudah terisi dan belum terisi
+                                if (isAnswered) {
+                                    total_filled++;
+                                } else {
+                                    total_unfilled++;
+                                }
+
                                 return {
                                     id: questionForm.id,
                                     field: questionForm.field,
                                     tipedata: questionForm.tipedata,
                                     datajson: questionForm.datajson,
-                                    answer: userAnswer ? userAnswer.data : null, // Jawaban pengguna atau null
+                                    answer: userAnswer ? userAnswer.data : null, 
                                 };
                             }),
                         },
                     };
                 }),
+                status: {
+                    total_filled,
+                    total_unfilled,
+                },
             },
         };
 
