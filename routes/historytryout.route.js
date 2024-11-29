@@ -10,4 +10,5 @@ route.get('/user/history/tryout/:idquestion_num', [mid.checkRolesAndLogout([ 'Su
 
 route.get('/historyform/pdf', [mid.checkRolesAndLogout(['Super Admin'])], questionformInput.pdfHistoryFormUser);
 
+route.get('/user/tryout/history/:packagetryout_id', [mid.checkRolesAndLogout(['Super Admin', 'User'])], questionformInput.getDetailPackageTryout);
 module.exports = route;
