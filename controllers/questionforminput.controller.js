@@ -6,6 +6,9 @@ const {
   Question_form,
   Package_tryout,
   Type_package,
+  Bank_package,
+  Bank_soal,
+  Type_question,
   User_info,
   Provinsi,
   Kota,
@@ -655,6 +658,172 @@ module.exports = {
     } catch (err) {
       res.status(500).json(response(500, "Internal server error", err));
       console.log(err);
+    }
+  },
+
+   //get detail history tryout user by package
+  getDetailPackageTryout: async (req, res) => {
+    const { packagetryout_id } = req.params;
+
+    const userinfo_id = req.user.role === "User" ? req.user.userId : req.body.userId;
+    
+    if (!userinfo_id) {
+      return res.status(403).json(response(403, "User must be logged in", []));
+    }
+
+    try {
+        // get detail Package Tryout
+        const packageTryout = await Package_tryout.findOne({
+            where: { id: packagetryout_id },
+            attributes: ['id', 'title', 'slug', 'description', 'duration', 'price'],
+            include: [
+                {
+                    model: Bank_package,
+                    attributes: ['id', 'packagetryout_id', 'banksoal_id'],
+                    include: [
+                        {
+                            model: Bank_soal,
+                            attributes: ['id', 'title', 'typequestion_id'],
+                            include: [
+                                {
+                                    model: Type_question,
+                                    attributes: ['id', 'name'],
+                                },
+                                {
+                                    model: Question_form,
+                                    attributes: ['id', 'field', 'tipedata', 'datajson', 'correct_answer'],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        });
+
+        if (!packageTryout) {
+            return res.status(404).json({
+                code: 404,
+                message: 'Package tryout not found',
+                data: null,
+            });
+        }
+
+        // get score user from Question_form_num
+        const questionFormNum = await Question_form_num.findOne({
+            where: { userinfo_id: userinfo_id, packagetryout_id: packagetryout_id },
+            attributes: ['id', 'userinfo_id', 'skor'],
+        });
+
+        if (!questionFormNum) {
+            return res.status(404).json({
+                code: 404,
+                message: 'Question form not found for user',
+                data: null,
+            });
+        }
+
+        const questionformnum_id = questionFormNum.id;
+
+        // get answer user from Question_form_input
+        const answers = await Question_form_input.findAll({
+            where: {
+                questionformnum_id: questionformnum_id,
+            },
+            attributes: ['questionform_id', 'data'],
+        });
+
+        // mapping user answer berdasarkan questionform_id
+        const userAnswers = {};
+        answers.forEach(answer => {
+            userAnswers[answer.questionform_id] = answer.data; 
+        });
+
+        console.log(`User Answers Mapping:`, JSON.stringify(userAnswers, null, 2));
+
+        // calculate the number of questions and total score per Type_question
+        const typeQuestionSummary = {};
+        packageTryout.Bank_packages.forEach(bankPackage => {
+            const bankSoals = Array.isArray(bankPackage.Bank_soal)
+                ? bankPackage.Bank_soal
+                : [bankPackage.Bank_soal].filter(Boolean);
+
+            bankSoals.forEach(bankSoal => {
+                const typeQuestionId = bankSoal.typequestion_id;
+                const typeName = bankSoal.Type_question?.name || 'Unknown';
+
+                if (!typeQuestionSummary[typeQuestionId]) {
+                    typeQuestionSummary[typeQuestionId] = {
+                        typeName: typeName,
+                        totalQuestions: 0,
+                        totalScore: 0,
+                    };
+                }
+
+                bankSoal.Question_forms.forEach(questionForm => {
+                    const correctAnswer = questionForm.correct_answer; 
+                    const userAnswer = userAnswers[questionForm.id];
+
+                    console.log(
+                        `Question ID: ${questionForm.id}, Correct Answer: ${JSON.stringify(correctAnswer)}, User Answer: ${userAnswer}`
+                    );
+
+                    let isCorrect = false;
+                    let points = 0;
+
+                    // if correctAnswer is single value
+                    if (typeof correctAnswer === 'string' || typeof correctAnswer === 'number') {
+                        isCorrect = String(correctAnswer) === String(userAnswer);
+                        points = isCorrect ? 5 : 0;
+                    } 
+                    // if correctAnswer is array of objects
+                    else if (Array.isArray(correctAnswer)) {
+                        const correctObject = correctAnswer.find(
+                            (item) => String(item.id) === String(userAnswer)
+                        );
+                        if (correctObject) {
+                            isCorrect = true;
+                            points = correctObject.point || 0;
+                        }
+                    } else {
+                        console.log(`Unknown format for correctAnswer: ${JSON.stringify(correctAnswer)}`);
+                    }
+
+                    // add score if answer is correct
+                    if (isCorrect) {
+                        typeQuestionSummary[typeQuestionId].totalScore += points;
+                    }
+
+                    // add summary question
+                    typeQuestionSummary[typeQuestionId].totalQuestions += 1;
+                });
+            });
+        });
+
+       // final result format
+        const result = {
+            id: packageTryout.id,
+            title: packageTryout.title,
+            slug: packageTryout.slug,
+            description: packageTryout.description,
+            duration: packageTryout.duration,
+            price: packageTryout.price,
+            score: parseFloat(questionFormNum.skor), 
+            typeQuestionSummary: Object.values(typeQuestionSummary),
+        };
+
+        return res.status(200).json({
+            code: 200,
+            message: 'Success get package tryout detail',
+            data: result,
+        });
+    } catch (error) {
+        console.error(error);
+
+        return res.status(500).json({
+            code: 500,
+            message: 'Internal server error',
+            error: error.message,
+        });
     }
   },
 
