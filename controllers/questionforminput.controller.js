@@ -77,7 +77,7 @@ module.exports = {
 
         let questionFormNum = await Question_form_num.findOne({
             where: { userinfo_id: iduser, packagetryout_id: idpackage },
-        });
+        }); 
 
         if (!questionFormNum) {
             const today = new Date().toISOString().split("T")[0];
@@ -175,6 +175,7 @@ module.exports = {
                         questionformnum_id: idforminput,
                         questionform_id,
                         data,
+                        packagetryout_id: idpackage
                     },
                     { transaction }
                 );
