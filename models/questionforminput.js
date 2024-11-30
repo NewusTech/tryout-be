@@ -15,6 +15,7 @@ module.exports = (sequelize, DataTypes) => {
   }
   Question_form_input.init({
     data: DataTypes.STRING,
+    packagetryout_id: DataTypes.INTEGER,
     questionform_id: DataTypes.INTEGER,
     questionformnum_id: DataTypes.INTEGER,
   }, {
