@@ -165,7 +165,6 @@ module.exports = {
     const userinfo_id = req.user.role === "User" ? req.user.userId : null;
 
     try {
-        // Jika userinfo_id tidak valid (null), kembalikan error
         if (!userinfo_id) {
             return res.status(403).json({
                 code: 403,
@@ -174,7 +173,6 @@ module.exports = {
             });
         }
 
-        // Ambil data Package_tryout
         const data = await Package_tryout.findOne({
             where: { id: packagetryout_id },
             attributes: ['id', 'title', 'slug'],
@@ -194,8 +192,8 @@ module.exports = {
                                 {
                                     model: Question_form,
                                     attributes: ['id', 'field', 'tipedata', 'datajson'],
-                                }
-                            ]
+                                },
+                            ],
                         },
                     ],
                 },
@@ -210,26 +208,27 @@ module.exports = {
             });
         }
 
-        // Ambil Data Question_form_num berdasarkan userinfo_id
         const questionSkor = await Question_form_num.findOne({
-            where: { userinfo_id },
-            attributes: ['id', 'userinfo_id'],
+            where: { userinfo_id, packagetryout_id },
+            attributes: ['id', 'userinfo_id', 'packagetryout_id'],
         });
 
-        // Ambil Data Jawaban Pengguna jika Question_form_num ditemukan
         let questionUser = [];
         if (questionSkor) {
-            questionUser = await Question_form_input.findAll({
+            const allAnswers = await Question_form_input.findAll({
                 where: { questionformnum_id: questionSkor.id },
-                attributes: ['data', 'questionform_id'],
+                attributes: ['data', 'questionform_id', 'questionformnum_id'],
             });
+
+            // Filter jawaban berdasarkan packagetryout_id
+            questionUser = allAnswers.filter(
+                (answer) => answer.questionformnum_id === questionSkor.id
+            );
         }
 
-        // Variabel untuk menghitung soal yang sudah terisi dan belum terisi
         let total_filled = 0;
         let total_unfilled = 0;
 
-        // Gabungkan Soal dengan Jawaban
         const response = {
             code: 200,
             message: 'Success get question form with user answers',
@@ -248,13 +247,11 @@ module.exports = {
                             typequestion_id: bankPackage.Bank_soal.typequestion_id,
                             Type_question: bankPackage.Bank_soal.Type_question,
                             Question_forms: bankPackage.Bank_soal.Question_forms.map((questionForm) => {
-                                // Cari jawaban pengguna, jika tidak ada maka null
                                 const userAnswer = questionUser.find(
                                     (answer) => answer.questionform_id === questionForm.id
                                 );
                                 const isAnswered = userAnswer ? true : false;
 
-                                // Hitung total sudah terisi dan belum terisi
                                 if (isAnswered) {
                                     total_filled++;
                                 } else {
@@ -266,7 +263,7 @@ module.exports = {
                                     field: questionForm.field,
                                     tipedata: questionForm.tipedata,
                                     datajson: questionForm.datajson,
-                                    answer: userAnswer ? userAnswer.data : null, 
+                                    answer: userAnswer ? userAnswer.data : null,
                                 };
                             }),
                         },
@@ -280,7 +277,6 @@ module.exports = {
         };
 
         return res.status(200).json(response);
-
     } catch (error) {
         console.error(error);
 
