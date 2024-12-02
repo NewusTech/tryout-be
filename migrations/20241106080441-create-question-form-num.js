@@ -30,6 +30,15 @@ module.exports = {
         status: {
           type: Sequelize.SMALLINT
         },
+        start_time: {
+          type: Sequelize.STRING
+        },
+        end_time: {
+          type: Sequelize.STRING
+        },
+        attempt: {
+          type: Sequelize.INTEGER
+        },
         createdAt: {
           allowNull: false,
           type: Sequelize.DATE
