@@ -159,7 +159,6 @@ module.exports = {
     }
   },
 
-  //mendapatkan semua form berdasarkan paket tryout
   getFormByPackage: async (req, res) => {
     const { packagetryout_id } = req.params;
     const userinfo_id = req.user.role === "User" ? req.user.userId : null;
@@ -173,6 +172,23 @@ module.exports = {
             });
         }
 
+        // Cek sesi aktif
+        const latestSession = await Question_form_num.findOne({
+            where: { userinfo_id, packagetryout_id },
+            order: [['attempt', 'DESC']],
+            attributes: ['id', 'start_time', 'end_time', 'status', 'attempt'],
+        });
+
+        const now = new Date();
+
+        if (!latestSession || now > new Date(latestSession.end_time)) {
+            return res.status(403).json({
+                code: 403,
+                message: 'No active session. Please start the tryout.',
+            });
+        }
+
+        // Ambil data Package_tryout
         const data = await Package_tryout.findOne({
             where: { id: packagetryout_id },
             attributes: ['id', 'title', 'slug'],
@@ -208,27 +224,16 @@ module.exports = {
             });
         }
 
-        const questionSkor = await Question_form_num.findOne({
-            where: { userinfo_id, packagetryout_id },
-            attributes: ['id', 'userinfo_id', 'packagetryout_id'],
+        // Ambil jawaban pengguna untuk sesi aktif
+        const questionUser = await Question_form_input.findAll({
+            where: { questionformnum_id: latestSession.id },
+            attributes: ['data', 'questionform_id'],
         });
-
-        let questionUser = [];
-        if (questionSkor) {
-            const allAnswers = await Question_form_input.findAll({
-                where: { questionformnum_id: questionSkor.id },
-                attributes: ['data', 'questionform_id', 'questionformnum_id'],
-            });
-
-            // Filter jawaban berdasarkan packagetryout_id
-            questionUser = allAnswers.filter(
-                (answer) => answer.questionformnum_id === questionSkor.id
-            );
-        }
 
         let total_filled = 0;
         let total_unfilled = 0;
 
+        // Gabungkan data soal dengan jawaban pengguna
         const response = {
             code: 200,
             message: 'Success get question form with user answers',
@@ -236,6 +241,9 @@ module.exports = {
                 id: data.id,
                 title: data.title,
                 slug: data.slug,
+                attempt: latestSession.attempt, // Nomor percobaan sesi
+                start_time: latestSession.start_time,
+                end_time: latestSession.end_time,
                 Bank_packages: data.Bank_packages.map((bankPackage) => {
                     return {
                         id: bankPackage.id,
