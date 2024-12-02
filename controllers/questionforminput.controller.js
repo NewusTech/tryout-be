@@ -58,10 +58,136 @@ const s3Client = new S3Client({
 
 module.exports = {
 
-  // user input jawaban
+  //start time tryout
+  startTryoutSession: async (req, res) => {
+    const { packagetryout_id } = req.params;
+    const userinfo_id = req.user.role === "User" ? req.user.userId : null;
+
+    try {
+        if (!userinfo_id) {
+            return res.status(403).json({
+                code: 403,
+                message: 'Forbidden: Only users can access this resource',
+            });
+        }
+
+        // Ambil sesi terakhir berdasarkan user dan package tryout
+        const latestSession = await Question_form_num.findOne({
+            where: { userinfo_id, packagetryout_id },
+            order: [['attempt', 'DESC']],
+        });
+
+        const now = moment().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss');
+
+        if (latestSession && moment(latestSession.end_time, 'YYYY-MM-DD HH:mm:ss').isAfter(now)) {
+            return res.status(200).json({
+                code: 200,
+                message: 'Session already active',
+                data: {
+                    id: latestSession.id,
+                    attempt: latestSession.attempt,
+                    start_time: latestSession.start_time,
+                    end_time: latestSession.end_time,
+                    no_ujian: latestSession.no_ujian,
+                },
+            });
+        }
+
+        // Buat no_ujian baru
+        const today = moment().format('YYYYMMDD');
+        const noUjian = `${crypto.randomBytes(4).toString('hex').toUpperCase()}${today}`;
+
+        const newAttempt = latestSession ? latestSession.attempt + 1 : 1;
+        const startTime = now;
+        const endTime = moment(now, 'YYYY-MM-DD HH:mm:ss').add(110, 'minutes').format('YYYY-MM-DD HH:mm:ss');
+
+        const newSession = await Question_form_num.create({
+            userinfo_id,
+            packagetryout_id,
+            attempt: newAttempt,
+            start_time: startTime, // Simpan sebagai string
+            end_time: endTime,     // Simpan sebagai string
+            no_ujian: noUjian,
+            status: 1,
+        });
+
+        return res.status(200).json({
+            code: 200,
+            message: 'New session started',
+            data: {
+                id: newSession.id,
+                attempt: newSession.attempt,
+                start_time: newSession.start_time,
+                end_time: newSession.end_time,
+                no_ujian: newSession.no_ujian,
+            },
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            code: 500,
+            message: 'Internal server error',
+            error: error.message,
+        });
+    }
+  },
+
+  //end time tryout
+  stopTryoutSession: async (req, res) => {
+      const { packagetryout_id } = req.params;
+      const userinfo_id = req.user.role === "User" ? req.user.userId : null;
+
+      try {
+          if (!userinfo_id) {
+              return res.status(403).json({
+                  code: 403,
+                  message: 'Forbidden: Only users can access this resource',
+              });
+          }
+
+          const latestSession = await Question_form_num.findOne({
+              where: { userinfo_id, packagetryout_id },
+              order: [['attempt', 'DESC']],
+          });
+
+          if (!latestSession || latestSession.status === 0) {
+              return res.status(400).json({
+                  code: 400,
+                  message: 'Session is already ended or not found.',
+              });
+          }
+
+          const now = moment().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss');
+
+          await Question_form_num.update(
+              { end_time: now, status: 0 }, // Simpan waktu sebagai string
+              { where: { id: latestSession.id } }
+          );
+
+          return res.status(200).json({
+              code: 200,
+              message: 'Session stopped successfully',
+              data: {
+                  id: latestSession.id,
+                  attempt: latestSession.attempt,
+                  end_time: now,
+              },
+          });
+      } catch (error) {
+          console.error(error);
+          return res.status(500).json({
+              code: 500,
+              message: 'Internal server error',
+              error: error.message,
+          });
+      }
+  },
+
+  //user input jawaban
   inputFormQuestion: async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
+
         const idpackage = req.params.idpackage;
         const iduser = req.user.role === "User" ? req.user.userId : req.body.userId;
 
@@ -75,26 +201,19 @@ module.exports = {
             throw new Error("Invalid input data format");
         }
 
-        let questionFormNum = await Question_form_num.findOne({
+        // Tambahkan validasi untuk sesi aktif
+        const latestSession = await Question_form_num.findOne({
             where: { userinfo_id: iduser, packagetryout_id: idpackage },
-        }); 
+            order: [['attempt', 'DESC']],
+        });
 
-        if (!questionFormNum) {
-            const today = new Date().toISOString().split("T")[0];
-            const noUjian = `${crypto.randomBytes(4).toString("hex").toUpperCase()}${today.replace(/-/g, "")}`;
-
-            questionFormNum = await Question_form_num.create(
-                {
-                    userinfo_id: iduser,
-                    status: 1,
-                    no_ujian: noUjian,
-                    packagetryout_id: idpackage,
-                },
-                { transaction }
+        if (!latestSession || new Date() > new Date(latestSession.end_time) || latestSession.status === 0) {
+            return res.status(403).json(
+                response(403, "Session is not active or has expired. Please start a new session.", [])
             );
         }
 
-        const idforminput = questionFormNum.id;
+        const idforminput = latestSession.id;
 
         // Ambil semua jawaban pengguna sebelumnya
         const previousAnswers = await Question_form_input.findAll({
@@ -112,7 +231,7 @@ module.exports = {
             scoreMapping.set(q.id, q.correct_answer);
         });
 
-        let totalPoints = parseFloat(questionFormNum.skor || 0);
+        let totalPoints = parseFloat(latestSession.skor || 0);
 
         for (let item of datainput) {
             const { questionform_id, data } = item;
@@ -128,12 +247,10 @@ module.exports = {
             console.log(`Correct Answer:`, correctAnswer);
 
             if (Array.isArray(correctAnswer)) {
-                // Ambil poin dari jawaban sebelumnya
                 const matchedPrevious = correctAnswer.find(
                     (correct) => Number(correct.id) === Number(previousAnswer?.data)
                 );
 
-                // Ambil poin dari jawaban baru
                 const matchedNew = correctAnswer.find(
                     (correct) => Number(correct.id) === Number(data)
                 );
@@ -150,11 +267,11 @@ module.exports = {
             } else if (!Array.isArray(correctAnswer)) {
                 if (Number(correctAnswer) === Number(previousAnswer?.data)) {
                     console.log(`Removing 5 points for previous correct single answer.`);
-                    totalPoints -= 5; // Kurangi poin jika jawaban sebelumnya benar
+                    totalPoints -= 5; 
                 }
                 if (Number(correctAnswer) === Number(data)) {
                     console.log(`Adding 5 points for new correct single answer.`);
-                    totalPoints += 5; // Tambahkan poin jika jawaban baru benar
+                    totalPoints += 5;
                 }
             }
 
@@ -175,7 +292,7 @@ module.exports = {
                         questionformnum_id: idforminput,
                         questionform_id,
                         data,
-                        packagetryout_id: idpackage
+                        packagetryout_id: idpackage,
                     },
                     { transaction }
                 );
@@ -190,59 +307,7 @@ module.exports = {
             { where: { id: idforminput }, transaction }
         );
 
-
         await transaction.commit();
-
-        setTimeout(async () => {
-          try {
-            console.log("Memanggil API generate PDF...");
-  
-            // Memanggil API generate PDF menggunakan idforminput yang baru saja dibuat
-            let apiURL = `${process.env.SERVER_URL}/user/sertifikat/${idpackage}/${idforminput}`;
-            console.log(`URL: ${apiURL}`);
-  
-            const responsePDF = await axios.get(apiURL, {
-              responseType: "arraybuffer",
-              headers: { "Cache-Control": "no-cache" },
-            });
-  
-            const pdfBuffer = responsePDF.data;
-            console.log("PDF berhasil diambil dari API.");
-  
-            // Upload PDF ke AWS S3
-            const timestamp = new Date().getTime();
-            const uniqueFileName = `${timestamp}-${idforminput}.pdf`;
-  
-            const uploadParams = {
-              Bucket: process.env.AWS_BUCKET,
-              Key: `${process.env.PATH_AWS}/sertifikat/${uniqueFileName}`,
-              Body: pdfBuffer,
-              ACL: "public-read",
-              ContentType: "application/pdf",
-            };
-  
-            const command = new PutObjectCommand(uploadParams);
-            await s3Client.send(command);
-  
-            const sertifikatPath = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
-  
-            console.log("PDF berhasil di-upload ke AWS S3:", sertifikatPath);
-  
-            // Update field sertifikat di tabel Layanan_form_num
-            const [affectedRows] = await Question_form_num.update(
-              { sertifikat: sertifikatPath },
-              { where: { id: idforminput } }
-            );
-  
-            if (affectedRows === 0) {
-              console.error("Gagal update field sertifikat.");
-            } else {
-              console.log("Field sertifikat berhasil diupdate.");
-            }
-          } catch (error) {
-            console.error("Error fetching or uploading PDF:", error);
-          }
-        }, 5000); // Set timeout 1 detik (1000 ms) untuk memberi waktu sebelum memanggil API
 
         res.status(200).json(
             response(200, "Success input answer", {
@@ -250,6 +315,46 @@ module.exports = {
                 inputCount: datainput.length,
             })
         );
+
+        // Proses generate sertifikat
+        setTimeout(async () => {
+          try {
+            const apiURL = `${process.env.SERVER_URL}/user/sertifikat/${idpackage}/${idforminput}`;
+
+              const responsePDF = await axios.get(apiURL, {
+                  responseType: "arraybuffer",
+                  headers: { "Cache-Control": "no-cache" },
+              });
+
+              const pdfBuffer = responsePDF.data;
+
+              const timestamp = new Date().getTime();
+              const uniqueFileName = `${timestamp}-${idforminput}.pdf`;
+
+              const uploadParams = {
+                  Bucket: process.env.AWS_BUCKET,
+                  Key: `${process.env.PATH_AWS}/sertifikat/${uniqueFileName}`,
+                  Body: pdfBuffer,
+                  ACL: "public-read",
+                  ContentType: "application/pdf",
+              };
+
+              const command = new PutObjectCommand(uploadParams);
+              await s3Client.send(command);
+
+              const sertifikatPath = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
+
+              await Question_form_num.update(
+                  { sertifikat: sertifikatPath },
+                  { where: { id: idforminput } }
+              );
+
+              console.log("Sertifikat berhasil dibuat dan diunggah:", sertifikatPath);
+          } catch (error) {
+              console.error("Error fetching or uploading PDF:", error);
+          }
+      }, 5000);
+
     } catch (err) {
         await transaction.rollback();
         console.error("Error:", err);
