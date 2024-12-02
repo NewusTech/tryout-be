@@ -533,6 +533,10 @@ module.exports = {
                             }
                         ]
                     },
+                    {
+                        model: Package_tryout,
+                        attributes: ['id', 'title', 'slug']
+                    }
                 ],
                 attributes: { exclude: ['Role', 'User_info'] }
             });
@@ -544,8 +548,8 @@ module.exports = {
             }
 
             const userPackages = await Package_tryout.findAll({
-                where: { user_id: userGet.id }
-            });
+                where: { typepackage_id: userGet.typepackage_id }
+            });            
 
             const userPeforms = await Question_form_num.findAll({
                 where: { userinfo_id: userGet.id },
@@ -584,7 +588,7 @@ module.exports = {
                 createdAt: userGet.createdAt,
                 updatedAt: userGet.updatedAt,
 
-                package_tryout: formattedPackages,
+                program: formattedPackages,
                 performa: formattedPeforms,
             };
 
@@ -599,7 +603,7 @@ module.exports = {
     getProfileUser: async (req, res) => {
         try {
             const showDeleted = req.query.showDeleted ?? null;
-            const whereCondition = { id: data.user_akun_id };
+            const whereCondition = { id: req.user.user_akun_id };
 
             if (showDeleted !== null) {
                 whereCondition.deletedAt = { [Op.not]: null };
