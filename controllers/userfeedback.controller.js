@@ -321,6 +321,10 @@ module.exports = {
         },
         include: [
           {
+            model: User_info,
+            attributes: ["id", "name"],
+          },
+          {
             model: Package_tryout,
             attributes: ["id", "title"],
             include: [
@@ -338,6 +342,7 @@ module.exports = {
       }
 
       // Ambil detail feedback, layanan, dan bidang
+      const name = feedbackData.User_info?.name
       const question_1 = feedbackData.question_1;
       const feedback = feedbackData.feedback;
       const package_name = feedbackData.Package_tryout?.title;
@@ -347,6 +352,7 @@ module.exports = {
       // Jika diperlukan lebih dari satu data, modifikasi di sini
       const formatteddata = {
         id: feedbackData.id,
+        name,
         question_1,
         feedback,
         package_name: package_name || "Unknown",
