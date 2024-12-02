@@ -167,7 +167,7 @@ module.exports = {
 
             let userinfo = await User_info.findOne({
                 where: whereClause,
-                attributes: ['name', 'email', 'id', 'telepon', 'image_profile'],
+                attributes: ['name', 'slug', 'email', 'id', 'telepon', 'image_profile'],
                 include: [
                     {
                         model: User,
@@ -219,6 +219,7 @@ module.exports = {
             res.status(200).json(response(200, 'login success', { 
                 token: token,
                 username: userinfo.name,
+                slug: userinfo.slug,
                 profile: userinfo.image_profile,
                 typepackage_id : typePackage.id,
                 typepackage_name : typePackage.name,
