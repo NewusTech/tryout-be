@@ -149,10 +149,6 @@ module.exports = {
                 },
                 attributes: ['id', 'title'],
                 include: [
-                    // {
-                    //     model: Bidang,
-                    //     attributes: ['id', 'nama', 'pj', 'nip_pj'],
-                    // },
                     {
                         model: Setting_sertifikat,
                     }
@@ -171,7 +167,7 @@ module.exports = {
                     where: {
                       id: req.params.idforminput,
                     },
-                    attributes: ['id', 'userinfo_id'],
+                    attributes: ['id', 'userinfo_id', 'no_ujian', 'skor'],
                     include: [
                       {
                         model: User_info,
@@ -205,6 +201,9 @@ module.exports = {
             htmlContent = htmlContent.replace('{{tahunInfo}}', tahunInfo);
             htmlContent = htmlContent.replace('{{tanggalInfo}}', tanggalInfo);
             htmlContent = htmlContent.replace('{{name}}', getdatauser?.User_info?.name ?? 'Tidak Ditemukan');
+            htmlContent = htmlContent.replace('{{noUjian}}', getdatauser.no_ujian ?? 'Tidak Ditemukan');
+            htmlContent = htmlContent.replace('{{totalScore}}', Math.floor(getdatauser.skor) ?? 'Tidak Ditemukan');
+
             
             // Jalankan Puppeteer dan buat PDF
             const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
