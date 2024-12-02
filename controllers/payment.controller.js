@@ -162,6 +162,7 @@ module.exports = {
             let formattedUsers = {
                 id: userGet.id,
                 name: userGet.User_info?.name,
+                id_payment: userGet.Payment?.id,
                 metode_payment: userGet.Payment?.Type_payment.title ?? null,
                 price: userGet.Payment?.price,
                 receipt: userGet.Payment?.receipt,
@@ -261,6 +262,5 @@ module.exports = {
             });
         }
     },
-
 
 }
