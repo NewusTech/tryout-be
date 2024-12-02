@@ -19,11 +19,14 @@ module.exports = (sequelize, DataTypes) => {
   Question_form_num.init({
     no_ujian: DataTypes.STRING,
     userinfo_id: DataTypes.INTEGER,
-    // packagetryout_id: DataTypes.INTEGER,
+    packagetryout_id: DataTypes.INTEGER,
     sertifikat: DataTypes.STRING,
     skor: DataTypes.STRING,
     tgl_selesai: DataTypes.DATEONLY,
     status: DataTypes.SMALLINT,
+    start_time: DataTypes.STRING,
+    end_time: DataTypes.STRING,
+    attempt: DataTypes.INTEGER,
   }, {
     sequelize,
     modelName: 'Question_form_num',
