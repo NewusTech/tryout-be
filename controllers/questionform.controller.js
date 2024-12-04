@@ -247,34 +247,34 @@ module.exports = {
                 Bank_packages: data.Bank_packages.map((bankPackage) => {
                     return {
                         id: bankPackage.id,
-                        packagetryout_id: bankPackage.packagetryout_id,
-                        banksoal_id: bankPackage.banksoal_id,
-                        Bank_soal: {
-                            id: bankPackage.Bank_soal.id,
-                            title: bankPackage.Bank_soal.title,
-                            typequestion_id: bankPackage.Bank_soal.typequestion_id,
-                            Type_question: bankPackage.Bank_soal.Type_question,
-                            Question_forms: bankPackage.Bank_soal.Question_forms.map((questionForm) => {
-                                const userAnswer = questionUser.find(
-                                    (answer) => answer.questionform_id === questionForm.id
-                                );
-                                const isAnswered = userAnswer ? true : false;
+                        Question_forms: bankPackage.Bank_soal.Question_forms
+                        .sort((a, b) => a.id - b.id)
+                        .map((questionForm) => {
+                            const userAnswer = questionUser.find(
+                                (answer) => answer.questionform_id === questionForm.id
+                            );
+                            const isAnswered = userAnswer ? true : false;
 
-                                if (isAnswered) {
-                                    total_filled++;
-                                } else {
-                                    total_unfilled++;
-                                }
+                            if (isAnswered) {
+                                total_filled++;
+                            } else {
+                                total_unfilled++;
+                            }
 
-                                return {
-                                    id: questionForm.id,
-                                    field: questionForm.field,
-                                    tipedata: questionForm.tipedata,
-                                    datajson: questionForm.datajson,
-                                    answer: userAnswer ? userAnswer.data : null,
-                                };
-                            }),
-                        },
+                            return {
+                                id: questionForm.id,
+                                type_question_id: bankPackage.Bank_soal.Type_question.id, // Tambahkan nama
+                                type_question_name: bankPackage.Bank_soal.Type_question.name, // Tambahkan nama
+                                bank_soal_id: bankPackage.Bank_soal.id,
+                                bank_soal_name: bankPackage.Bank_soal.title,
+                                field: questionForm.field,
+                                tipedata: questionForm.tipedata,
+                                datajson: questionForm.datajson,
+                                answer: userAnswer ? userAnswer.data : null,
+                                type_question_id: bankPackage.Bank_soal.typequestion_id, // Tambahkan id
+                                
+                            };
+                        }),
                     };
                 }),
                 status: {
