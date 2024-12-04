@@ -159,6 +159,7 @@ module.exports = {
     }
   },
 
+  //mendapatkan bank soal by package
   getFormByPackage: async (req, res) => {
     const { packagetryout_id } = req.params;
     const userinfo_id = req.user.role === "User" ? req.user.userId : null;
@@ -238,51 +239,46 @@ module.exports = {
             code: 200,
             message: 'Success get question form with user answers',
             data: {
-                id: data.id,
-                title: data.title,
-                slug: data.slug,
-                attempt: latestSession.attempt, // Nomor percobaan sesi
-                start_time: latestSession.start_time,
-                end_time: latestSession.end_time,
-                Bank_packages: data.Bank_packages.map((bankPackage) => {
-                    return {
-                        id: bankPackage.id,
-                        Question_forms: bankPackage.Bank_soal.Question_forms
-                        .sort((a, b) => a.id - b.id)
-                        .map((questionForm) => {
-                            const userAnswer = questionUser.find(
-                                (answer) => answer.questionform_id === questionForm.id
-                            );
-                            const isAnswered = userAnswer ? true : false;
-
-                            if (isAnswered) {
-                                total_filled++;
-                            } else {
-                                total_unfilled++;
-                            }
-
-                            return {
-                                id: questionForm.id,
-                                type_question_id: bankPackage.Bank_soal.Type_question.id, // Tambahkan nama
-                                type_question_name: bankPackage.Bank_soal.Type_question.name, // Tambahkan nama
-                                bank_soal_id: bankPackage.Bank_soal.id,
-                                bank_soal_name: bankPackage.Bank_soal.title,
-                                field: questionForm.field,
-                                tipedata: questionForm.tipedata,
-                                datajson: questionForm.datajson,
-                                answer: userAnswer ? userAnswer.data : null,
-                                type_question_id: bankPackage.Bank_soal.typequestion_id, // Tambahkan id
-                                
-                            };
-                        }),
-                    };
-                }),
-                status: {
-                    total_filled,
-                    total_unfilled,
-                },
-            },
-        };
+              id: data.id,
+              title: data.title,
+              slug: data.slug,
+              attempt: latestSession.attempt, // Nomor percobaan sesi
+              start_time: latestSession.start_time,
+              end_time: latestSession.end_time,
+              Question_forms: data.Bank_packages.flatMap((bankPackage) => 
+                  bankPackage.Bank_soal.Question_forms
+                      .sort((a, b) => a.id - b.id)
+                      .map((questionForm) => {
+                          const userAnswer = questionUser.find(
+                              (answer) => answer.questionform_id === questionForm.id
+                          );
+                          const isAnswered = userAnswer ? true : false;
+      
+                          if (isAnswered) {
+                              total_filled++;
+                          } else {
+                              total_unfilled++;
+                          }
+      
+                          return {
+                              id: questionForm.id,
+                              type_question_id: bankPackage.Bank_soal.typequestion_id, 
+                              type_question_name: bankPackage.Bank_soal.Type_question.name,
+                              bank_soal_id: bankPackage.Bank_soal.id,
+                              bank_soal_name: bankPackage.Bank_soal.title,
+                              field: questionForm.field,
+                              tipedata: questionForm.tipedata,
+                              datajson: questionForm.datajson,
+                              answer: userAnswer ? userAnswer.data : null,
+                          };
+                      })
+              ),
+              status: {
+                  total_filled,
+                  total_unfilled,
+              },
+          },
+      };
 
         return res.status(200).json(response);
     } catch (error) {
