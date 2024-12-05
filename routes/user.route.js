@@ -20,6 +20,7 @@ route.get('/user/get/:slug', [mid.checkRolesAndLogout(['Super Admin'])], userCon
 route.delete('/user/delete/:slug', [mid.checkRolesAndLogout(['Super Admin'])], userController.deleteUser);
 
 route.get('/admin/get', [mid.checkRolesAndLogout(['Super Admin'])], userController.getAdmin);
+route.post('/admin/account/create', [mid.checkRolesAndLogout(['Super Admin'])],  userController.createAdmin);
 
 //API BUAT USER
 route.get('/user/profile/get', [mid.checkRolesAndLogout(['User', 'Super Admin'])], userController.getProfileUser); 

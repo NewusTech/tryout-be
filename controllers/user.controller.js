@@ -429,6 +429,93 @@ module.exports = {
         }
     },
 
+    //membuatkan akun user oleh admin
+    createAdmin: async (req, res) => {
+        const transaction = await sequelize.transaction();
+    
+        try {
+            // Membuat schema untuk validasi
+            const schema = {
+                name: { type: "string", min: 3 },
+                email: { type: "string", min: 5, max: 50, pattern: /^\S+@\S+\.\S+$/, optional: true },
+                role_id: { type: "number", optional: true },
+            };
+    
+            // Validasi
+            const validate = v.validate({
+                name: req.body.name,
+                password: req.body.password,
+                role_id: req.body.role_id !== undefined ? Number(req.body.role_id) : undefined,
+                email: req.body.email,
+            }, schema);
+
+    
+            if (validate.length > 0) {
+                const errorMessages = validate.map(error => {
+                    if (error.type === 'stringMin') {
+                        return `${error.field} minimal ${error.expected} karakter`;
+                    } else if (error.type === 'stringMax') {
+                        return `${error.field} maksimal ${error.expected} karakter`;
+                    } else if (error.type === 'stringPattern') {
+                        return `${error.field} format tidak valid`;
+                    } else {
+                        return `${error.field} tidak valid`;
+                    }
+                });
+    
+                res.status(400).json({
+                    status: 400,
+                    message: errorMessages.join(', ')
+                });
+                return;
+            }
+    
+            const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
+            const slug = `${req.body.name}-${timestamp}`;
+    
+            // Membuat object untuk create userinfo
+            let userinfoCreateObj = {
+                name: req.body.name,
+                email: req.body.email,
+                slug: slug
+            };
+    
+            // Membuat entri baru di tabel userinfo
+            let userinfoCreate = await User_info.create(userinfoCreateObj, { transaction });
+    
+            // Membuat object untuk create user
+            let userCreateObj = {
+                password: passwordHash.generate(req.body.password),
+                role_id: 1,
+                userinfo_id: userinfoCreate.id,
+                slug: slug
+            };
+    
+            // Membuat user baru
+            let userCreate = await User.create(userCreateObj, { transaction });
+
+
+            // Mengirim response dengan bantuan helper response.formatter
+            await transaction.commit();
+
+            res.status(201).json(response(201, 'admin created', {
+                user: userCreate,
+            }));
+    
+        } catch (err) {
+            await transaction.rollback();
+            if (err.name === 'SequelizeUniqueConstraintError') {
+                res.status(400).json({
+                    status: 400,
+                    message: `${err.errors[0].path} sudah terdaftar`
+                });
+            } else {
+                res.status(500).json(response(500, 'terjadi kesalahan pada server', err));
+            }
+            console.log(err);
+        }
+    },
+
     //mendapatkan semua data admin
     getAdmin: async (req, res) => {
         try {
