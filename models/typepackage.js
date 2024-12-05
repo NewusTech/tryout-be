@@ -5,6 +5,9 @@ const {
 module.exports = (sequelize, DataTypes) => {
   class Type_package extends Model {
     static associate(models) {
+      Type_package.hasMany(models.User, {
+        foreignKey: 'typepackage_id',
+    });
     }
   }
   Type_package.init({
