@@ -584,13 +584,15 @@ module.exports = {
                 provinsi_id: userGet.User_info?.provinsi_id,
                 provinsi_name: userGet.User_info?.Provinsi?.name,
                 kota_id: userGet.User_info?.kota_id,
-                kota_name: userGet.User_info?.Kota?.name,
+                kota_name: userGet.User_info?.Kotum?.name,
+                image_profile: userGet.User_info?.image_profile,
                 createdAt: userGet.createdAt,
                 updatedAt: userGet.updatedAt,
 
                 program: formattedPackages,
                 performa: formattedPeforms,
             };
+
 
             //response menggunakan helper response.formatter
             res.status(200).json(response(200, 'success get user by slug', formattedUsers));
