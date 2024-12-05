@@ -429,6 +429,76 @@ module.exports = {
         }
     },
 
+    //mendapatkan semua data admin
+    getAdmin: async (req, res) => {
+        try {
+            const showDeleted = req.query.showDeleted ?? null;
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 10;
+            const offset = (page - 1) * limit;
+            let userGets;
+            let totalCount;
+
+            const whereCondition = {
+                role_id: 1
+            };
+
+            if (showDeleted !== null) {
+                whereCondition.deletedAt = { [Op.not]: null };
+            } else {
+                whereCondition.deletedAt = null;
+            }
+
+            [userGets, totalCount] = await Promise.all([
+                User.findAll({
+                    include: [
+                        {
+                            model: Role,
+                            attributes: ['name', 'id'],
+                            as: 'Role'
+                        },
+                        {
+                            model: User_info,
+                            as: 'User_info',
+                        },
+                    ],
+                    limit: limit,
+                    offset: offset,
+                    attributes: { exclude: ['Role', 'User_info'] },
+                    order: [['id', 'ASC']],
+                    where: whereCondition,
+                }),
+                User.count({
+                    where: whereCondition
+                })
+            ]);
+
+            let formattedUsers = userGets.map(user => {
+                return {
+                    id: user.id,
+                    slug: user.slug,
+                    name: user.User_info?.name,
+                    email: user.User_info?.email,
+                    createdAt: user.createdAt,
+                    updatedAt: user.updatedAt
+                };
+            });
+
+            const pagination = generatePagination(totalCount, page, limit, '/api/user/get');
+
+            res.status(200).json({
+                status: 200,
+                message: 'success get',
+                data: formattedUsers,
+                pagination: pagination
+            });
+
+        } catch (err) {
+            res.status(500).json(response(500, 'internal server error', err));
+            console.log(err);
+        }
+    },
+
     //mendapatkan semua data user
     getUser: async (req, res) => {
         try {
