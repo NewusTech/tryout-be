@@ -1,6 +1,6 @@
 const { response } = require('../helpers/response.formatter');
 
-const { User, Token, Role, Type_package, User_info, Payment, Type_payment, Package_tryout, User_permission, Permission, Provinsi, Kota, Question_form_num, sequelize } = require('../models');
+const { User, Role, Type_package, User_info, Payment, Type_payment, sequelize } = require('../models');
 const { generatePagination } = require('../pagination/pagination');
 const Validator = require("fastest-validator");
 const v = new Validator();
@@ -186,18 +186,29 @@ module.exports = {
                 where: {
                     id: req.params.idpayment
                 },
-                attributes: ['id', 'no_payment', 'price', 'createdAt', 'status'],
+                attributes: ['id', 'no_payment', 'price', 'user_id', 'createdAt', 'status'], // Tambahkan user_id untuk relasi
                 include: [
                     {
                         model: Type_payment,
                         attributes: ['id', 'title'],
                     },
                     {
-                        model: User_info,
-                        attributes: ['id', 'name'],
-                    }
-                ]
+                        model: User,
+                        attributes: ['id', 'slug', 'userinfo_id', 'typepackage_id'],
+                        include: [
+                            {
+                                model: User_info,
+                                attributes: ['id', 'name'],
+                            },
+                            {
+                                model: Type_package,
+                                attributes: ['id', 'name'], 
+                            },
+                        ],
+                    },
+                ],
             });
+            
 
             if (!payment) {
                 return res.status(404).send('Data tidak ditemukan');
@@ -217,6 +228,8 @@ module.exports = {
                 hour12: false
             });
             const statusText = payment?.status == 1 ? 'Sukses' : payment?.status == 0 ? 'Gagal' : 'Tidak Diketahui';
+            const name = payment?.Users?.[0]?.User_info?.name || '';
+            const packageTitle = payment?.Users?.[0]?.Type_package?.name || '';
 
             htmlContent = htmlContent.replace('{{metodePayment}}', payment.Type_payment.title ?? '');
             htmlContent = htmlContent.replace('{{noPayment}}', payment?.no_payment ?? '');
@@ -226,7 +239,11 @@ module.exports = {
             htmlContent = htmlContent.replace('{{price}}', payment?.price ?? '');
             htmlContent = htmlContent.replace('{{status}}', statusText ?? '');
            
-            htmlContent = htmlContent.replace('{{nameUser}}', payment?.User_info?.name ?? '');
+            htmlContent = htmlContent.replace('{{name}}', name);
+            htmlContent = htmlContent.replace('{{packageTitle}}', packageTitle);
+
+            console.log('Payment Data:', JSON.stringify(payment, null, 2));
+
 
             // Jalankan Puppeteer dan buat PDF
             const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
@@ -234,13 +251,8 @@ module.exports = {
             await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
 
             const pdfBuffer = await page.pdf({
-                format: 'A4',
-                margin: {
-                    top: '0.6in',
-                    right: '1.08in',
-                    bottom: '1.08in',
-                    left: '1.08in'
-                }
+                format: 'A5',
+               
             });
 
             await browser.close();
