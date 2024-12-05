@@ -372,30 +372,32 @@ module.exports = {
             const randomCode = crypto.randomBytes(3).toString("hex").toUpperCase();
             const noPayments = `INV${tanggalFormat}${randomCode}`;
 
-            let paymentCreateObj = {
-                no_payment: noPayments,
-                typepayment_id: req.body.typepayment_id,
-                price: req.body.price,
-                receipt: receiptKey || null, 
-                status : 1
-            };
 
-            // Membuat entri payment di tabel payments
-            let paymentCreate = await Payment.create(paymentCreateObj, { transaction });
-    
-            // Membuat object untuk create user
+            // Membuat user tanpa payment_id
             let userCreateObj = {
                 password: passwordHash.generate(req.body.password),
                 role_id: 2,
                 typepackage_id: req.body.typepackage_id ? Number(req.body.typepackage_id) : undefined,
                 userinfo_id: userinfoCreate.id,
-                payment_id: paymentCreate.id,
                 slug: slug
             };
-    
-            // Membuat user baru
+            
             let userCreate = await User.create(userCreateObj, { transaction });
-
+            
+            // Membuat payment dengan user_id
+            let paymentCreateObj = {
+                no_payment: noPayments,
+                typepayment_id: req.body.typepayment_id,
+                price: req.body.price,
+                receipt: receiptKey || null,
+                user_id: userCreate.id, 
+                status: 1
+            };
+            
+            let paymentCreate = await Payment.create(paymentCreateObj, { transaction });
+            
+            // Perbarui payment_id di User
+            await userCreate.update({ payment_id: paymentCreate.id }, { transaction });
 
             // Mengirim response dengan bantuan helper response.formatter
             await transaction.commit();
