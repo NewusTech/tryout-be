@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,121 +8,158 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
+            background-color: #f9f9f9;
         }
+        
+        .container {
+            margin-bottom: 0; /* Kurangi atau hilangkan margin */
+        }
+
+        .invoice-container {
+            max-width: 500px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
         .header {
             text-align: center;
-            margin-bottom: 20px;
         }
+
         .header img {
-            width: 100px;
+            max-width: 100px;
         }
+
         .header h1 {
-            font-size: 20px;
-            margin: 5px 0;
+            font-size: 16px;
+            margin: 10px 0 5px;
         }
+
         .header p {
             font-size: 12px;
+            margin: 0;
             color: #666;
         }
-        .details, .table {
-            width: 100%;
-            margin-bottom: 20px;
+
+        .details {
+            margin: 20px 0;
+            font-weight: bold;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 16px;
+            margin-bottom: 40px;
         }
-        .details td {
-          padding: 5px;
-          vertical-align: top;
+
+        .details p {
+            font-size: 14px;
+            margin: 5px 0;
         }
-        .details td:nth-child(2) {
-          text-align: center; /* Pusatkan titik dua */
-          width: 5%;
+
+        .details span {
+            font-weight: bold;
         }
-        .details td:first-child {
-            width: 20%;
-        }
-        .details td:last-child {
-            width: 80%;
-        }
-        .table {
+
+        .table-container {
+            margin: 20px 0;
             border-collapse: collapse;
+            width: 100%;
         }
-        .table th, .table td {
+
+        .table-container th,
+        .table-container td {
             border: 1px solid #ddd;
-            background-color: #f9f6fb;
             padding: 10px;
             text-align: left;
         }
-        .table th {
-            background-color: #4A055B !important;
-        }
 
-        .table thead th {
-          background-color: #4A055B !important; /* Warna ungu muda */
-          color: #4A055B; /* Warna teks */
+        .table-container th {
+            background-color: #e4d7ef;
+            color: #4b2a6a;
         }
 
         .totals {
             text-align: right;
+            margin-top: 10px;
+            font-size: 16px;
             margin-top: 20px;
         }
+
         .totals p {
             margin: 5px 0;
         }
+
+        .totals .bold {
+            font-weight: bold;
+        }
+
+        .header img {
+            width: 100%;
+            max-width: 200px;
+            height: auto;
+            object-fit: contain;
+        }
+        .detail-nama{
+            width: 220px;
+        }
+        .wrap-detail{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
     </style>
 </head>
+
 <body>
-    <div class="header">
-        <img src="../public/image/Logo-goldblack.png" alt="Logo">
-        <h1>MASTER EDUCATION</h1>
-        <p>Most Accelerated Study & The Expert Result</p>
-    </div>
-
-    <table class="details">
-      <tr>
-          <td><strong>Nama</strong></td>
-          <td>:</td>
-          <td>{{nameUser}}</td>
-      </tr>
-      <tr>
-          <td><strong>Nomor Pembayaran</strong></td>
-          <td>:</td>
-          <td>{{noPayment}}</td>
-      </tr>
-      <tr>
-          <td><strong>Metode Pembayaran</strong></td>
-          <td>:</td>
-          <td>{{metodePayment}}</td>
-      </tr>
-      <tr>
-          <td><strong>Tanggal</strong></td>
-          <td>:</td>
-          <td>{{tanggal}}</td>
-      </tr>
-      <tr>
-          <td><strong>Jam</strong></td>
-          <td>:</td>
-          <td>{{time}}</td>
-      </tr>
-    </table>
-  
-
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Description</th>
-                <th>Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>Tryout Platinum</td>
-                <td>Rp. {{pricePackage}}</td>
-            </tr>
-        </tbody>
-    </table>
-
-    <div class="totals">
-        <p><strong>Total:</strong> Rp. {{price}}</p>
+    <div class="invoice-container">
+        <div class="header">
+            <img src="https://backend-tryout.newus.id/images/Logo-goldblack.png" alt="Master Education Logo">
+        </div>
+        <h2 style="text-align: start; margin: 20px 0;">INVOICE</h2>
+        <div class="details">
+            <div class="wrap-detail">
+                <div class="detail-nama">Nama</div>
+                <div class="">: {{name}}</div>
+            </div>
+            <div class="wrap-detail">
+                <div class="detail-nama">Nomor Pembayaran</div>
+                <div class="">: {{noPayment}}</div>
+            </div>
+            <div class="wrap-detail">
+                <div class="detail-nama">Metode Pembayaran</div>
+                <div class="">: {{metodePayment}}</div>
+            </div>
+            <div class="wrap-detail">
+                <div class="detail-nama">Tanggal</div>
+                <div class="">: {{tanggal}}</div>
+            </div>
+            <div class="wrap-detail">
+                <div class="detail-nama">Jam</div>
+                <div class="">: {{time}} WIB</div>
+            </div>
+        </div>
+        <table class="table-container">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Paket Tryout {{packageTitle}}</td>
+                    <td>1</td>
+                    <td>Rp.{{pricePackage}}</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="totals">
+            <br>
+            <br>
+            <p class="bold">Total: Rp.{{price}}</p>
+        </div>
     </div>
 </body>
+
 </html>
