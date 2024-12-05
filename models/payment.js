@@ -8,14 +8,14 @@ module.exports = (sequelize, DataTypes) => {
       Payment.belongsTo(models.Type_payment, {
         foreignKey: 'typepayment_id',
       });
-      Payment.belongsTo(models.User_info, {
-        foreignKey: 'userinfo_id',
-      });
+      Payment.hasMany(models.User, {
+        foreignKey: 'payment_id',
+    });
     }
   }
   
   Payment.init({
-    userinfo_id: DataTypes.INTEGER,
+    user_id: DataTypes.INTEGER,
     no_payment: DataTypes.STRING,
     typepayment_id: DataTypes.INTEGER,
     price: DataTypes.STRING,
