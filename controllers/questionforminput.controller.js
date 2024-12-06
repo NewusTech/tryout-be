@@ -582,22 +582,6 @@ module.exports = {
       const WhereClause2 = {};
       const WhereClause3 = {};
 
-      // if (
-      //   req.user.role === "Kepala Bidang" ||
-      //   req.user.role === "Admin Verifikasi"
-      // ) {
-      //   WhereClause2.bidang_id = req.user.bidang_id;
-      // } else if (
-      //   req.user.role === "Super Admin" ||
-      //   req.user.role === "Kepala Dinas" ||
-      //   req.user.role === "Sekretaris Dinas"
-      // ) {
-      // }
-
-      // if (req.user.role === 'Admin Verifikasi' || req.user.role === 'Kepala Bidang') {
-      //     WhereClause.layanan_id = req.user.layanan_id;
-      // }
-
       if (range == "today") {
         WhereClause.createdAt = {
           [Op.between]: [
@@ -813,7 +797,7 @@ module.exports = {
 
         if (!questionFormNum) {
             return res.status(404).json({
-                code: 404,
+                code: 404, 
                 message: 'Question form not found for user',
                 data: null,
             });
@@ -924,65 +908,168 @@ module.exports = {
     }
   },
 
+  // req.params.idquestion_num,
+
   getHistoryById: async (req, res) => {
+    const { idquestion_num } = req.params;
+
     try {
-      let Packageformnumget = await Question_form_num.findOne({
-        where: {
-          id: req.params.idquestion_num,
-        },
-        include: [
-          {
-            model: Package_tryout,
-            attributes: { exclude: [ "createdAt", "updatedAt", "slug"] },
+        // Ambil data Question_form_num berdasarkan ID
+        const questionFormNum = await Question_form_num.findOne({
+            where: { id: idquestion_num },
             include: [
-              {
-                model: Type_package,
-                attributes: { exclude: ["createdAt", "updatedAt", "slug"] },
-              },
+                {
+                    model: Package_tryout,
+                    attributes: ['id', 'title', 'slug', 'description', 'duration', 'price'],
+                    include: [
+                        {
+                            model: Bank_package,
+                            attributes: ['id', 'packagetryout_id', 'banksoal_id'],
+                            include: [
+                                {
+                                    model: Bank_soal,
+                                    attributes: ['id', 'title', 'typequestion_id'],
+                                    include: [
+                                        {
+                                            model: Type_question,
+                                            attributes: ['id', 'name'],
+                                        },
+                                        {
+                                            model: Question_form,
+                                            attributes: ['id', 'field', 'tipedata', 'datajson', 'correct_answer'],
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
             ],
-          },
-          {
-            model: User_info,
-            attributes: ["name"],
-          }
-        ],
-      });
+        });
 
-      if (!Packageformnumget) {
-        res.status(404).json(response(404, "data not found"));
-        return;
-      }
+        if (!questionFormNum) {
+            return res.status(404).json({
+                code: 404,
+                message: 'Question form num not found',
+                data: null,
+            });
+        }
 
-      let formattedData = {
-        id: Packageformnumget?.id,
-        userinfo_id: Packageformnumget?.userinfo_id,
-        name: Packageformnumget?.User_info
-          ? Packageformnumget?.User_info?.name
-          : null,
-        status: Packageformnumget?.status,
-        packagetryout_id: Packageformnumget?.packagetryout_id,
-        package_name: Packageformnumget?.Package_tryout
-          ? Packageformnumget?.Package_tryout?.title
-          : null,
-        typepackage_id:
-          Packageformnumget?.Package_tryout && Packageformnumget?.Package_tryout?.Type_package
-            ? Packageformnumget?.Package_tryout?.Type_package.id
-            : null,
-        typepackage_name:
-          Packageformnumget?.Package_tryout && Packageformnumget?.Package_tryout?.Type_package
-            ? Packageformnumget?.Package_tryout?.Type_package.name
-            : null,
-        sertifikat: Packageformnumget?.sertifikat,
-        createdAt: Packageformnumget?.createdAt,
-        updatedAt: Packageformnumget?.updatedAt,
-      };
+        // Hitung durasi dari start_time dan end_time
+        const startTime = new Date(questionFormNum.start_time);
+        const endTime = new Date(questionFormNum.end_time);
 
-      res.status(200).json(response(200, "success get", formattedData));
-    } catch (err) {
-      res.status(500).json(response(500, "Internal server error", err));
-      console.log(err);
+        const durationMs = endTime - startTime; // Durasi dalam milidetik
+        const durationHrs = Math.floor(durationMs / (1000 * 60 * 60));
+        const durationMins = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+        const durationSecs = Math.floor((durationMs % (1000 * 60)) / 1000);
+
+        const durationFormatted = `${durationHrs.toString().padStart(2, '0')}:${durationMins
+            .toString()
+            .padStart(2, '0')}:${durationSecs.toString().padStart(2, '0')}`;
+
+        // Ambil jawaban pengguna berdasarkan Question_form_num ID
+        const answers = await Question_form_input.findAll({
+            where: { questionformnum_id: idquestion_num },
+            attributes: ['questionform_id', 'data'],
+        });
+
+        // Mapping jawaban pengguna berdasarkan questionform_id
+        const userAnswers = {};
+        answers.forEach((answer) => {
+            userAnswers[answer.questionform_id] = answer.data;
+        });
+
+        console.log(`User Answers Mapping:`, JSON.stringify(userAnswers, null, 2));
+
+        // Perhitungan soal dan skor per Type_question
+        const typeQuestionSummary = {};
+        const packageTryout = questionFormNum.Package_tryout;
+
+        packageTryout.Bank_packages.forEach((bankPackage) => {
+            const bankSoals = Array.isArray(bankPackage.Bank_soal)
+                ? bankPackage.Bank_soal
+                : [bankPackage.Bank_soal].filter(Boolean);
+
+            bankSoals.forEach((bankSoal) => {
+                const typeQuestionId = bankSoal.typequestion_id;
+                const typeName = bankSoal.Type_question?.name || 'Unknown';
+
+                if (!typeQuestionSummary[typeQuestionId]) {
+                    typeQuestionSummary[typeQuestionId] = {
+                        typeName: typeName,
+                        totalQuestions: 0,
+                        totalScore: 0,
+                    };
+                }
+
+                bankSoal.Question_forms.forEach((questionForm) => {
+                    const correctAnswer = questionForm.correct_answer;
+                    const userAnswer = userAnswers[questionForm.id];
+
+                    console.log(
+                        `Question ID: ${questionForm.id}, Correct Answer: ${JSON.stringify(correctAnswer)}, User Answer: ${userAnswer}`
+                    );
+
+                    let isCorrect = false;
+                    let points = 0;
+
+                    // Jika correctAnswer berupa single value
+                    if (typeof correctAnswer === 'string' || typeof correctAnswer === 'number') {
+                        isCorrect = String(correctAnswer) === String(userAnswer);
+                        points = isCorrect ? 5 : 0;
+                    }
+                    // Jika correctAnswer berupa array objek
+                    else if (Array.isArray(correctAnswer)) {
+                        const correctObject = correctAnswer.find(
+                            (item) => String(item.id) === String(userAnswer)
+                        );
+                        if (correctObject) {
+                            isCorrect = true;
+                            points = correctObject.point || 0;
+                        }
+                    } else {
+                        console.log(`Unknown format for correctAnswer: ${JSON.stringify(correctAnswer)}`);
+                    }
+
+                    // Tambahkan skor jika jawaban benar
+                    if (isCorrect) {
+                        typeQuestionSummary[typeQuestionId].totalScore += points;
+                    }
+
+                    // Tambahkan total soal
+                    typeQuestionSummary[typeQuestionId].totalQuestions += 1;
+                });
+            });
+        });
+
+        // Format hasil
+        const result = {
+            id: packageTryout.id,
+            title: packageTryout.title,
+            slug: packageTryout.slug,
+            description: packageTryout.description,
+            duration: durationFormatted, // Tambahkan durasi dalam format HH:mm:ss
+            price: packageTryout.price,
+            score: parseFloat(questionFormNum.skor),
+            typeQuestionSummary: Object.values(typeQuestionSummary),
+        };
+
+        return res.status(200).json({
+            code: 200,
+            message: 'Success get details by question form num',
+            data: result,
+        });
+    } catch (error) {
+        console.error(error);
+
+        return res.status(500).json({
+            code: 500,
+            message: 'Internal server error',
+            error: error.message,
+        });
     }
-  },
+},
 
   pdfHistoryFormUser: async (req, res) => {
     try {
