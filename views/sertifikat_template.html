@@ -217,23 +217,23 @@
                     <p class="name">{{name}}</p>
                     <img class="garis" src="https://backend-tryout.newus.id/images/garis.png" alt="Ribbon">
                 </div>
-                <p class="tanggal">Tanggal Ujian: 07 November 2024</p>
+                <p class="tanggal">Tanggal Ujian: {{startTime}}</p>
                 <div class="scores">
                     <table>
                         <tr>
                             <td>Tes Wawasan Kebangsaan</td>
                             <td>:</td>
-                            <td>65</td>
+                            <td>{{twkScore}}</td>
                         </tr>
                         <tr>
                             <td>Tes Intelegensia Umum</td>
                             <td>:</td>
-                            <td>120</td>
+                            <td>{{tiuScore}}</td>
                         </tr>
                         <tr>
                             <td>Tes Karakteristik Pribadi</td>
                             <td>:</td>
-                            <td>189</td>
+                            <td>{{tkpScore}}</td>
                         </tr>
                         <tr>
                             <td><b>Total</b></td>
@@ -245,7 +245,7 @@
                 <p class="footer">Bandar Lampung, {{tanggalInfo}}<br>{{settingTitle}}</p>
                 <div class="signature">
                     <div class="tanda">
-                        <img src="https://backend-tryout.newus.id/images/signature.png" alt="Tanda Tangan">
+                        <img src="{{sign}}" alt="Tanda Tangan">
                     </div>
                     <span class="nama-tanda">{{settingName}}</span>
                 </div>
