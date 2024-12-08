@@ -12,6 +12,10 @@ module.exports = (sequelize, DataTypes) => {
     sub_title: DataTypes.STRING,
     description: DataTypes.TEXT,
     telepon: DataTypes.STRING,
+    email: DataTypes.STRING,
+    adress: DataTypes.STRING,
+    lat: DataTypes.STRING,
+    long: DataTypes.STRING,
     main_logo: DataTypes.STRING,
     sub_logo: DataTypes.STRING
   }, {
