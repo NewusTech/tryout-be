@@ -18,9 +18,6 @@ module.exports = {
       sign: {
         type: Sequelize.STRING
       },
-      packagetryout_id: {
-        type: Sequelize.INTEGER
-      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE
