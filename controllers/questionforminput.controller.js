@@ -30,14 +30,7 @@ const { format } = require("date-fns");
 const { id } = require("date-fns/locale");
 const crypto = require("crypto");
 const axios = require("axios");
-
-const Redis = require("ioredis");
 const { log } = require("console");
-const redisClient = new Redis({
-  host: process.env.REDIS_HOST,
-  port: process.env.REDIS_PORT,
-  password: process.env.REDIS_PASSWORD,
-});
 
 const transporter = nodemailer.createTransport({
   service: "Gmail",
@@ -1013,6 +1006,8 @@ module.exports = {
             id: packageTryout.id,
             title: packageTryout.title,
             slug: packageTryout.slug,
+            startTime : moment(questionFormNum.start_time).format('D MMMM YYYY'),
+            endTime : moment(questionFormNum.end_time).format('D MMMM YYYY'),
             description: packageTryout.description,
             duration: durationFormatted,
             price: packageTryout.price,
