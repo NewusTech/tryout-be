@@ -21,6 +21,18 @@ module.exports = {
       telepon: {
         type: Sequelize.STRING
       },
+      email: {
+        type: Sequelize.STRING
+      },
+      address: {
+        type: Sequelize.STRING
+      },
+      lat: {
+        type: Sequelize.STRING
+      },
+      long: {
+        type: Sequelize.STRING
+      },
       main_logo: {
         type: Sequelize.STRING
       },
