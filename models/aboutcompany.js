@@ -13,7 +13,7 @@ module.exports = (sequelize, DataTypes) => {
     description: DataTypes.TEXT,
     telepon: DataTypes.STRING,
     email: DataTypes.STRING,
-    adress: DataTypes.STRING,
+    address: DataTypes.STRING,
     lat: DataTypes.STRING,
     long: DataTypes.STRING,
     main_logo: DataTypes.STRING,

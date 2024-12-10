@@ -24,6 +24,10 @@ module.exports = {
                 sub_title: { type: "string", min: 3 },
                 description: { type: "string", min: 3 },
                 telepon: { type: "string", min: 3 },
+                email: { type: "string", min: 3 },
+                address: { type: "string", min: 3 },
+                lat: { type: "string", min: 3 },
+                long: { type: "string", min: 3 },
             }
     
             let mainlogoKey, sublogoKey;
@@ -70,6 +74,10 @@ module.exports = {
                 sub_title: req.body.sub_title,
                 description: req.body.description,
                 telepon: req.body.telepon,
+                email: req.body.email,
+                address: req.body.address,
+                lat: req.body.lat,
+                long: req.body.long,
                 main_logo: mainlogoKey || null,
                 sub_logo: sublogoKey || null,
             }
@@ -156,6 +164,10 @@ module.exports = {
                 sub_title: { type: "string", min: 3, optional: true },
                 description: { type: "string", min: 3, optional: true },
                 telepon: { type: "string", min: 3, optional: true },
+                email: { type: "string", min: 3, optional: true },
+                address: { type: "string", min: 3, optional: true },
+                lat: { type: "string", min: 3, optional: true },
+                long: { type: "string", min: 3, optional: true },
                 main_logo: { type: "string", min: 3, optional: true },
                 sub_logo: { type: "string", min: 3, optional: true },
             };
@@ -207,6 +219,10 @@ module.exports = {
                 sub_title: req.body.sub_title,
                 description: req.body.description,
                 telepon: req.body.telepon,
+                email: req.body.email,
+                address: req.body.address,
+                lat: req.body.lat,
+                long: req.body.long,
                 main_logo: mainlogoKey || ProfileGet.main_logo,
                 sub_logo: sublogoKey || ProfileGet.sub_logo,
             };
