@@ -388,11 +388,6 @@ module.exports = {
               },
             ],
           },
-        //   {
-        //     model: User_info,
-        //     as: "Adminupdate",
-        //     attributes: ["id", "name", "nip"],
-        //   },
           {
             model: Package_tryout,
             attributes: ["id", "title", "description"],
@@ -471,7 +466,6 @@ module.exports = {
         package_name: questionformnumData?.Package_tryout,
         userinfo_id: questionformnumData?.userinfo_id,
         userinfo: questionformnumData?.User_info,
-        // admin_updated: questionformnumData?.Adminupdate,
         createdAt: questionformnumData?.createdAt,
         updatedAt: questionformnumData?.updatedAt,
         Question_form_inputs: formattedInputData ?? null,
