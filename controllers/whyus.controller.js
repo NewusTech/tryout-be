@@ -127,7 +127,7 @@ module.exports = {
             }
     
             // Update why us
-            await WhyUs_media.update(WhyUsUpdateObj, {
+            await Why_us.update(WhyUsUpdateObj, {
                 where: { id: req.params.id }
             });
     
