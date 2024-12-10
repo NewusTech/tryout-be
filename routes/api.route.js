@@ -21,6 +21,7 @@ const typepaymentRoute = require('./typepayment.route');
 const sertifikatRoute = require('./sertifikat.route');
 const socialmediaRoute = require('./socialmedia.route');
 const whyusRoute = require('./whyus.route');
+const dashboardRoute = require('./dashboard.route');
 
 module.exports = function (app, urlApi) {
     app.use(urlApi, userRoute);
@@ -46,4 +47,5 @@ module.exports = function (app, urlApi) {
     app.use(urlApi, sertifikatRoute);
     app.use(urlApi, socialmediaRoute);
     app.use(urlApi, whyusRoute);
+    app.use(urlApi, dashboardRoute);
 }
