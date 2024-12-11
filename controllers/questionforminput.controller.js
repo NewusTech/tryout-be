@@ -866,7 +866,6 @@ module.exports = {
     const { idquestion_num } = req.params;
 
     try {
-        // Ambil data Question_form_num berdasarkan ID
         const questionFormNum = await Question_form_num.findOne({
             where: { id: idquestion_num },
             include: [
@@ -907,11 +906,10 @@ module.exports = {
             });
         }
 
-        // Hitung durasi dari start_time dan end_time
         const startTime = new Date(questionFormNum.start_time);
         const endTime = new Date(questionFormNum.end_time);
 
-        const durationMs = endTime - startTime; // Durasi dalam milidetik
+        const durationMs = endTime - startTime;
         const durationHrs = Math.floor(durationMs / (1000 * 60 * 60));
         const durationMins = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
         const durationSecs = Math.floor((durationMs % (1000 * 60)) / 1000);
@@ -920,21 +918,16 @@ module.exports = {
             .toString()
             .padStart(2, '0')}:${durationSecs.toString().padStart(2, '0')}`;
 
-        // Ambil jawaban pengguna berdasarkan Question_form_num ID
         const answers = await Question_form_input.findAll({
             where: { questionformnum_id: idquestion_num },
             attributes: ['questionform_id', 'data'],
         });
 
-        // Mapping jawaban pengguna berdasarkan questionform_id
         const userAnswers = {};
         answers.forEach((answer) => {
             userAnswers[answer.questionform_id] = answer.data;
         });
 
-        console.log(`User Answers Mapping:`, JSON.stringify(userAnswers, null, 2));
-
-        // Perhitungan soal dan skor per Type_question
         const typeQuestionSummary = {};
         const packageTryout = questionFormNum.Package_tryout;
 
@@ -951,6 +944,9 @@ module.exports = {
                     typeQuestionSummary[typeQuestionId] = {
                         typeName: typeName,
                         totalQuestions: 0,
+                        totalCorrect: 0,
+                        totalIncorrect: 0,
+                        totalUnanswered: 0,
                         totalScore: 0,
                     };
                 }
@@ -959,20 +955,13 @@ module.exports = {
                     const correctAnswer = questionForm.correct_answer;
                     const userAnswer = userAnswers[questionForm.id];
 
-                    console.log(
-                        `Question ID: ${questionForm.id}, Correct Answer: ${JSON.stringify(correctAnswer)}, User Answer: ${userAnswer}`
-                    );
-
                     let isCorrect = false;
                     let points = 0;
 
-                    // Jika correctAnswer berupa single value
                     if (typeof correctAnswer === 'string' || typeof correctAnswer === 'number') {
                         isCorrect = String(correctAnswer) === String(userAnswer);
                         points = isCorrect ? 5 : 0;
-                    }
-                    // Jika correctAnswer berupa array objek
-                    else if (Array.isArray(correctAnswer)) {
+                    } else if (Array.isArray(correctAnswer)) {
                         const correctObject = correctAnswer.find(
                             (item) => String(item.id) === String(userAnswer)
                         );
@@ -980,32 +969,34 @@ module.exports = {
                             isCorrect = true;
                             points = correctObject.point || 0;
                         }
-                    } else {
-                        console.log(`Unknown format for correctAnswer: ${JSON.stringify(correctAnswer)}`);
                     }
 
-                    // Tambahkan skor jika jawaban benar
-                    if (isCorrect) {
-                        typeQuestionSummary[typeQuestionId].totalScore += points;
-                    }
-
-                    // Tambahkan total soal
                     typeQuestionSummary[typeQuestionId].totalQuestions += 1;
+
+                    if (userAnswer !== null && userAnswer !== undefined) {
+                        if (isCorrect) {
+                            typeQuestionSummary[typeQuestionId].totalCorrect += 1;
+                            typeQuestionSummary[typeQuestionId].totalScore += points;
+                        } else {
+                            typeQuestionSummary[typeQuestionId].totalIncorrect += 1;
+                        }
+                    } else {
+                        typeQuestionSummary[typeQuestionId].totalUnanswered += 1;
+                    }
                 });
             });
         });
 
-        // Format hasil
         const result = {
             id: packageTryout.id,
             title: packageTryout.title,
             slug: packageTryout.slug,
-            startTime : moment(questionFormNum.start_time).format('D MMMM YYYY'),
-            endTime : moment(questionFormNum.end_time).format('D MMMM YYYY'),
+            startTime: moment(questionFormNum.start_time).format('D MMMM YYYY'),
+            endTime: moment(questionFormNum.end_time).format('D MMMM YYYY'),
             description: packageTryout.description,
             duration: durationFormatted,
             price: packageTryout.price,
-            score: parseFloat(questionFormNum.skor),
+            score: parseInt(questionFormNum.skor),
             typeQuestionSummary: Object.values(typeQuestionSummary),
         };
 
@@ -1024,7 +1015,7 @@ module.exports = {
         });
     }
   },
-  
+
   //get pembahasan by id question_num untuk tiap tryout user
   getDiscussionById: async (req, res) => {
     const { idquestion_num } = req.params;
