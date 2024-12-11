@@ -823,7 +823,7 @@ module.exports = {
           id: data.id,
           userinfo_id: data?.userinfo_id,
           name: data?.User_info?.name,
-          skor: data?.skor,
+          skor: parseInt(data?.skor),
           sertifikat: data?.sertifikat,
           status: data?.status,
           duration: durationFormatted,
