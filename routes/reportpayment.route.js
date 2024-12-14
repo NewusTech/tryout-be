@@ -13,4 +13,6 @@ route.get('/user/report/payment/get', [mid.checkRolesAndLogout(['User', 'Super A
 route.get('/user/report/payment/:slug', [mid.checkRolesAndLogout(['Super Admin', 'User'])], paymentController.getReportPaymentBySlug); 
 route.get('/user/receipt/:idpayment', paymentController.getReceiptPayment); 
 
+route.get('/user/report/payment/print/pdf', mid.checkRolesAndLogout(["Super Admin"]), paymentController.getPaymentPrintPDF);
+
 module.exports = route;
