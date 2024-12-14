@@ -10,4 +10,6 @@ route.get('/user/history/feedback/detail/:idfeedback', [mid.checkRolesAndLogout(
 route.get('/user/history/feedback/get', [mid.checkRolesAndLogout(['Super Admin'])], userfeedbackController.getAllUserFeedbackHistory);
 route.get('/user/history/feedback/:idpackage', [mid.checkRolesAndLogout(['Super Admin'])], userfeedbackController.getHistoryByPackage);
 
+route.get('/user/feedback/print/pdf/get', mid.checkRolesAndLogout(["Super Admin"]), userfeedbackController.getFeedbackPrintPDF);
+
 module.exports = route;
