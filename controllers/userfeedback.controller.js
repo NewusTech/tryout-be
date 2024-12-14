@@ -367,4 +367,146 @@ module.exports = {
     }
   },
 
+  getFeedbackPrintPDF: async (req, res) => {
+    try {
+      let { search, packagetryout_id } = req.query;
+      let year = req.query.year ? parseInt(req.query.year) : null;
+      let month = req.query.month ? parseInt(req.query.month) : null;
+  
+      let whereCondition = {};
+  
+      if (packagetryout_id) {
+        whereCondition.packagetryout_id = packagetryout_id;
+      }
+  
+      if (search) {
+        whereCondition[Op.or] = [
+          { name: { [Op.like]: `%${search}%` } }
+        ];
+      }
+  
+      if (year && month) {
+        whereCondition.createdAt = {
+          [Op.between]: [
+            new Date(year, month - 1, 1),
+            new Date(year, month, 0, 23, 59, 59, 999),
+          ],
+        };
+      } else if (year) {
+        whereCondition.createdAt = {
+          [Op.between]: [
+            new Date(year, 0, 1),
+            new Date(year, 11, 31, 23, 59, 59, 999),
+          ],
+        };
+      } else if (month) {
+        const currentYear = new Date().getFullYear();
+        whereCondition.createdAt = {
+          [Op.and]: [
+            { [Op.gte]: new Date(currentYear, month - 1, 1) },
+            { [Op.lte]: new Date(currentYear, month, 0, 23, 59, 59, 999) },
+          ],
+        };
+      }
+  
+      const feedback = await User_feedback.findAll({
+        where: whereCondition,
+        attributes: ['id', 'userinfo_id', 'packagetryout_id', 'question_1', 'feedback'],
+        include: [
+          {
+            model: User_info,
+            attributes: ['id', 'name'],
+          },
+          {
+            model: Package_tryout,
+            attributes: ['id', 'title'],
+          }
+        ]
+      });
+  
+      // Baca template HTML
+      const templatePath = path.resolve(__dirname, "../views/feedback_print_template.html"
+      );
+
+      let htmlContent = fs.readFileSync(templatePath, "utf8");
+  
+      // Fungsi untuk menghitung nilai per user berdasarkan feedback
+      const calculateTotalNilai = (feedback) => {
+        const nilaiPerUser = feedback.question_1 * 25;
+        return nilaiPerUser;
+      };
+  
+      // Format data yang akan ditampilkan
+      const formattedData = feedback.map((data) => {
+        const totalNilai = calculateTotalNilai(data);
+        return {
+          name: data?.User_info?.name ?? "",
+          packageName: data?.Package_tryout?.title ?? "",
+          nilaiUser: totalNilai ?? 0,
+          feedbackUser: data?.feedback ?? ""
+        };
+      });
+      
+  
+      // Perluas template HTML menggunakan data dari formattedData
+      let tableRows = "";
+      
+      formattedData.forEach((data, index) => {
+        tableRows += `
+        <tr>
+        <td>${index + 1}</td>
+        <td>${data.name}</td>
+        <td>${data.packageName}</td>
+        <td>${data.nilaiUser}</td>
+        <td>${data.feedbackUser}</td>
+        </tr>
+        `;
+      });
+      
+      htmlContent = htmlContent.replace("{{tableRows}}", tableRows);
+
+  
+      // Jalankan Puppeteer dan buat PDF
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
+      const page = await browser.newPage();
+      await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+  
+      const pdfBuffer = await page.pdf({
+        format: "A4",
+        margin: {
+          top: "0.6in",
+          right: "1.08in",
+          bottom: "1.08in",
+          left: "1.08in",
+        },
+      });
+  
+      await browser.close();
+  
+      const currentDate = new Date().toISOString().replace(/:/g, "-");
+      const filename = `feedback-user-${currentDate}.pdf`;
+  
+      // Simpan buffer PDF untuk debugging
+      fs.writeFileSync("output.pdf", pdfBuffer);
+  
+      // Set response headers
+      res.setHeader(
+        "Content-disposition",
+        `attachment; filename="${filename}"`
+      );
+      res.setHeader("Content-type", "application/pdf");
+      res.end(pdfBuffer);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({
+        message: "Internal Server Error",
+        error: error.message,
+      });
+    }
+  },
+  
+
 };
