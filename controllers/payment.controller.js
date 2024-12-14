@@ -275,4 +275,141 @@ module.exports = {
         }
     },
 
+    getPaymentPrintPDF: async (req, res) => {
+        try {
+          let { search, typepayment_id } = req.query;
+          let year = req.query.year ? parseInt(req.query.year) : null;
+          let month = req.query.month ? parseInt(req.query.month) : null;
+      
+          let whereCondition = {};
+      
+          if (typepayment_id) {
+            whereCondition.typepayment_id = typepayment_id;
+          }
+      
+          if (search) {
+            whereCondition[Op.or] = [
+              { nama: { [Op.like]: `%${search}%` } },
+              { nip: { [Op.like]: `%${search}%` } },
+            ];
+          }
+      
+          if (year && month) {
+            whereCondition.createdAt = {
+              [Op.between]: [
+                new Date(year, month - 1, 1),
+                new Date(year, month, 0, 23, 59, 59, 999),
+              ],
+            };
+          } else if (year) {
+            whereCondition.createdAt = {
+              [Op.between]: [
+                new Date(year, 0, 1),
+                new Date(year, 11, 31, 23, 59, 59, 999),
+              ],
+            };
+          } else if (month) {
+            const currentYear = new Date().getFullYear();
+            whereCondition.createdAt = {
+              [Op.and]: [
+                { [Op.gte]: new Date(currentYear, month - 1, 1) },
+                { [Op.lte]: new Date(currentYear, month, 0, 23, 59, 59, 999) },
+              ],
+            };
+          }
+      
+          const payment = await Payment.findAll({
+            where: whereCondition,
+            attributes: ['id', 'user_id', 'no_payment', 'price', 'typepayment_id', 'createdAt'],
+            include: [
+                {
+                    model: Type_payment,
+                    attributes: ['id', 'title'],
+                },
+                {
+                    model: User,
+                    attributes: ['id', 'userinfo_id'],
+                    include: [
+                        {
+                            model: User_info,
+                            attributes: ['id', 'name'],
+
+                        },
+                    ]
+                },
+            ]
+          });
+          
+          if (!payment || payment.length === 0) {
+            return res.status(404).json({
+                status: 404,
+                message: "No payments found",
+            });
+        }
+      
+          // Baca template HTML
+          const templatePath = path.resolve(__dirname, "../views/payment_print_template.html"
+          );
+    
+          let htmlContent = fs.readFileSync(templatePath, "utf8");
+      
+          console.log('data:', JSON.stringify(payment, null, 2));
+        
+          const payments = payment[0]; 
+          const tanggalInfo = new Date(payments?.createdAt).toLocaleDateString('id-ID', { 
+            day: '2-digit', 
+            month: 'long', 
+            year: 'numeric'
+        });
+          
+          htmlContent = htmlContent.replace('{{metodePayment}}', payments.Type_payment.title ?? null );
+          htmlContent = htmlContent.replace('{{noPayment}}', payments?.no_payment ?? null );
+          htmlContent = htmlContent.replace('{{tanggal}}', tanggalInfo);
+          htmlContent = htmlContent.replace('{{price}}', payments?.price ?? '0');
+          htmlContent = htmlContent.replace('{{name}}', payments?.Users?.[0]?.User_info?.name ?? null);
+
+          // Jalankan Puppeteer dan buat PDF
+          const browser = await puppeteer.launch({
+            headless: true,
+            args: ["--no-sandbox", "--disable-setuid-sandbox"],
+          });
+          const page = await browser.newPage();
+          await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+      
+          const pdfBuffer = await page.pdf({
+            format: "A4",
+            margin: {
+                top: "0.6in",
+                right: "0.2in",
+                bottom: "1.08in",
+                left: "0.2in",
+              },
+          });
+      
+          await browser.close();
+      
+          const currentDate = new Date().toISOString().replace(/:/g, "-");
+          const filename = `feedback-user-${currentDate}.pdf`;
+      
+          // Simpan buffer PDF untuk debugging
+          fs.writeFileSync("output.pdf", pdfBuffer);
+      
+          // Set response headers
+          res.setHeader(
+            "Content-disposition",
+            `attachment; filename="${filename}"`
+          );
+          res.setHeader("Content-type", "application/pdf");
+          res.end(pdfBuffer);
+        } catch (error) {
+          console.error("Error generating PDF:", error);
+          res.status(500).json({
+            message: "Internal Server Error",
+            error: error.message,
+          });
+        }
+      },
+
+
+
 }
