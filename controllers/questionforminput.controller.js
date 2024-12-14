@@ -549,315 +549,398 @@ module.exports = {
   //get history tryout form user
   getHistoryFormUser: async (req, res) => {
     try {
-      const search = req.query.search ?? null;
-      const status = req.query.status ?? null;
-      const range = req.query.range;
-      const userinfo_id = req.user.role === "User" ? req.user.userId : null;
-      const typepackage_id = Number(req.query.typepackage_id);
-      const packagetryout_id = Number(req.query.packagetryout_id);
-      const start_date = req.query.start_date;
-      let end_date = req.query.end_date;
-      const year = req.query.year ? parseInt(req.query.year) : null;
-      const month = req.query.month ? parseInt(req.query.month) : null;
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const offset = (page - 1) * limit;
-      let history;
-      let totalCount;
-  
-      const WhereClause = {};
-      const WhereClause2 = {};
-      const WhereClause3 = {};
-  
-      if (range == "today") {
-        WhereClause.createdAt = {
-          [Op.between]: [
-            moment().startOf("day").toDate(),
-            moment().endOf("day").toDate(),
-          ],
-        };
-      }
-  
-      if (userinfo_id) {
-        WhereClause.userinfo_id = userinfo_id;
-      }
-      if (status) {
-        WhereClause.status = status;
-      }
-      if (packagetryout_id) {
-        WhereClause.packagetryout_id = packagetryout_id;
-      }
-  
-      if (start_date && end_date) {
-        end_date = new Date(end_date);
-        end_date.setHours(23, 59, 59, 999);
-        WhereClause.createdAt = {
-          [Op.between]: [new Date(start_date), new Date(end_date)],
-        };
-      } else if (start_date) {
-        WhereClause.createdAt = {
-          [Op.gte]: new Date(start_date),
-        };
-      } else if (end_date) {
-        end_date = new Date(end_date);
-        end_date.setHours(23, 59, 59, 999);
-        WhereClause.createdAt = {
-          [Op.lte]: new Date(end_date),
-        };
-      }
-  
-      if (typepackage_id) {
-        WhereClause2.typepackage_id = typepackage_id;
-      }
-  
-      if (search) {
-        WhereClause3[Op.or] = [
-          { name: { [Op.like]: `%${search}%` } },
-          { "$Package_tryout.name$": { [Op.like]: `%${search}%` } },
-          { "$Package_tryout->Type_package.name$": { [Op.like]: `%${search}%` } },
-        ];
-      }
-  
-      if (year && month) {
-        WhereClause.createdAt = {
-          [Op.between]: [
-            new Date(year, month - 1, 1),
-            new Date(year, month, 0, 23, 59, 59, 999),
-          ],
-        };
-      } else if (year) {
-        WhereClause.createdAt = {
-          [Op.between]: [
-            new Date(year, 0, 1),
-            new Date(year, 11, 31, 23, 59, 59, 999),
-          ],
-        };
-      } else if (month) {
-        const currentYear = new Date().getFullYear();
-        WhereClause.createdAt = {
-          [Op.and]: [
-            { [Op.gte]: new Date(currentYear, month - 1, 1) },
-            { [Op.lte]: new Date(currentYear, month, 0, 23, 59, 59, 999) },
-          ],
-        };
-      }
-  
-      [history, totalCount] = await Promise.all([
-        Question_form_num.findAll({
-          where: WhereClause,
-          include: [
-            {
-              model: Package_tryout,
-              attributes: { include: ["slug", "title"] },
-              include: [
+        const userinfo_id = req.user.role === "User" ? req.user.userId : null;
+        const limit = parseInt(req.query.limit) || 10;
+        const page = parseInt(req.query.page) || 1;
+        const offset = (page - 1) * limit;
+
+        const WhereClause = {};
+        if (userinfo_id) WhereClause.userinfo_id = userinfo_id;
+
+        const histories = await Question_form_num.findAll({
+            where: WhereClause,
+            include: [
                 {
-                  model: Type_package,
-                  attributes: { exclude: ["createdAt", "updatedAt"] },
+                    model: Package_tryout,
+                    attributes: ['id', 'title', 'slug', 'description', 'duration', 'price'],
+                    include: [
+                        {
+                            model: Bank_package,
+                            attributes: ['id', 'packagetryout_id', 'banksoal_id'],
+                            include: [
+                                {
+                                    model: Bank_soal,
+                                    attributes: ['id', 'title', 'typequestion_id'],
+                                    include: [
+                                        {
+                                            model: Type_question,
+                                            attributes: ['id', 'name'],
+                                        },
+                                        {
+                                            model: Question_form,
+                                            attributes: ['id', 'field', 'tipedata', 'datajson', 'correct_answer'],
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
                 },
-              ],
-              where: WhereClause2,
-            },
-            {
-              model: User_info,
-              attributes: ["name"],
-              where: WhereClause3,
-            },
-          ],
-          limit: limit,
-          offset: offset,
-          order: [["id", "DESC"]],
-        }),
-        Question_form_num.count({
-          where: WhereClause,
-          include: [
-            {
-              model: Package_tryout,
-              include: [
-                {
-                  model: Type_package,
-                },
-              ],
-              where: WhereClause2,
-            },
-            {
-              model: User_info,
-              where: WhereClause3,
-            },
-          ],
-        }),
-      ]);
-  
-      let formattedData = history.map((data) => {
-        const startTime = new Date(data.start_time);
-        const endTime = new Date(data.end_time);
-        const durationMs = endTime - startTime; // Durasi dalam milidetik
-        const durationHrs = Math.floor(durationMs / (1000 * 60 * 60));
-        const durationMins = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-        const durationSecs = Math.floor((durationMs % (1000 * 60)) / 1000);
-  
-        const durationFormatted = `${durationHrs.toString().padStart(2, '0')}:${durationMins
-          .toString()
-          .padStart(2, '0')}:${durationSecs.toString().padStart(2, '0')}`;
-  
-        return {
-          id: data.id,
-          userinfo_id: data?.userinfo_id,
-          name: data?.User_info?.name,
-          skor: data?.skor,
-          sertifikat: data?.sertifikat,
-          status: data?.status,
-          duration: durationFormatted,
-          packagetryout_id: data?.packagetryout_id,
-          package_name: data?.Package_tryout ? data?.Package_tryout?.title : null,
-          typepackage_id:
-            data?.Package_tryout && data?.Package_tryout?.Type_package
-              ? data?.Package_tryout?.Type_package.id
-              : null,
-          typepackage_name:
-            data?.Package_tryout && data?.Package_tryout?.Type_package
-              ? data?.Package_tryout?.Type_package.name
-              : null,
-          createdAt: data?.createdAt,
-          updatedAt: data?.updatedAt,
-          
+            ],
+            limit,
+            offset,
+            order: [["createdAt", "DESC"]],
+        });
+
+        if (!histories.length) {
+            return res.status(404).json({
+                code: 404,
+                message: 'No history found',
+                data: [],
+            });
+        }
+
+        const scoreMinimums = {
+            "TWK": 65,
+            "TIU": 80,
+            "TKP": 166,
         };
-      });
-  
-      const pagination = generatePagination(
-        totalCount,
-        page,
-        limit,
-        `/api/user/history/tryout`
-      );
-  
-      res.status(200).json({
-        status: 200,
-        message: "success get",
-        data: formattedData,
-        pagination: pagination,
-      });
-    } catch (err) {
-      res.status(500).json(response(500, "Internal server error", err));
-      console.log(err);
+
+        const formattedHistories = histories.map((history) => {
+            if (!history.Package_tryout) {
+                return {
+                    id: history.id,
+                    message: 'Package tryout data not found',
+                };
+            }
+
+            const answers = history.Question_form_inputs?.map((input) => ({
+                questionform_id: input.questionform_id,
+                data: input.data,
+            })) || [];
+
+            const userAnswers = {};
+            answers.forEach((answer) => {
+                userAnswers[answer.questionform_id] = answer.data;
+            });
+
+            const typeQuestionSummary = {};
+            history.Package_tryout.Bank_packages.forEach((bankPackage) => {
+                const bankSoals = Array.isArray(bankPackage.Bank_soal) 
+                    ? bankPackage.Bank_soal 
+                    : [bankPackage.Bank_soal].filter(Boolean); // Pastikan Bank_soal adalah array
+                
+                bankSoals.forEach((bankSoal) => {
+                    const typeQuestionId = bankSoal.typequestion_id;
+                    const typeName = bankSoal.Type_question?.name || 'Unknown';
+
+                    if (!typeQuestionSummary[typeQuestionId]) {
+                        typeQuestionSummary[typeQuestionId] = {
+                            typeName,
+                            totalQuestions: 0,
+                            totalCorrect: 0,
+                            totalIncorrect: 0,
+                            totalUnanswered: 0,
+                            totalScore: 0,
+                        };
+                    }
+
+                    bankSoal.Question_forms.forEach((questionForm) => {
+                        const correctAnswer = questionForm.correct_answer;
+                        const userAnswer = userAnswers[questionForm.id];
+
+                        let isCorrect = false;
+                        let points = 0;
+
+                        if (typeof correctAnswer === 'string' || typeof correctAnswer === 'number') {
+                            isCorrect = String(correctAnswer) === String(userAnswer);
+                            points = isCorrect ? 5 : 0;
+                        } else if (Array.isArray(correctAnswer)) {
+                            const correctObject = correctAnswer.find(
+                                (item) => String(item.id) === String(userAnswer)
+                            );
+                            if (correctObject) {
+                                isCorrect = true;
+                                points = correctObject.point || 0;
+                            }
+                        }
+
+                        typeQuestionSummary[typeQuestionId].totalQuestions += 1;
+
+                        if (userAnswer !== null && userAnswer !== undefined) {
+                            if (isCorrect) {
+                                typeQuestionSummary[typeQuestionId].totalCorrect += 1;
+                                typeQuestionSummary[typeQuestionId].totalScore += points;
+                            } else {
+                                typeQuestionSummary[typeQuestionId].totalIncorrect += 1;
+                            }
+                        } else {
+                            typeQuestionSummary[typeQuestionId].totalUnanswered += 1;
+                        }
+                    });
+                });
+            });
+
+            let isLolos = "Lulus";
+            Object.values(typeQuestionSummary).forEach((summary) => {
+                const requiredScore = scoreMinimums[summary.typeName] ?? 0;
+                if (summary.totalScore < requiredScore) {
+                    summary.status = 'Tidak Lulus';
+                    isLolos = "Tidak Lulus";
+                } else {
+                    summary.status = 'Lulus';
+                }
+            });
+
+            const startTime = new Date(history.start_time);
+            const endTime = new Date(history.end_time);
+            const durationMs = endTime - startTime;
+            const durationFormatted = moment.utc(durationMs).format("HH:mm:ss");
+
+            return {
+                id: history.id,
+                title: history.Package_tryout.title,
+                slug: history.Package_tryout.slug,
+                startTime: moment(startTime).format('D MMMM YYYY'),
+                endTime: moment(endTime).format('D MMMM YYYY'),
+                description: history.Package_tryout.description,
+                duration: durationFormatted,
+                price: history.Package_tryout.price,
+                score: parseInt(history.skor),
+                statusTryout: isLolos,
+            };
+        });
+
+        res.status(200).json({
+            code: 200,
+            message: 'Success get all histories',
+            data: formattedHistories,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            code: 500,
+            message: 'Internal server error',
+            error: error.message,
+        });
     }
   },
   
   //get detail history tryout user by package
   getDetailPackageTryout: async (req, res) => {
     try {
-      const { packagetryout_id } = req.params;
-      const userinfo_id = req.user.role === "User" ? req.user.userId : null;
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const offset = (page - 1) * limit;
-  
-      if (!packagetryout_id) {
-        return res.status(400).json({
-          status: 400,
-          message: "packagetryout_id is required",
-        });
-      }
-  
-      const WhereClause = {
-        packagetryout_id: packagetryout_id,
-      };
-  
-      if (userinfo_id) {
-        WhereClause.userinfo_id = userinfo_id; 
-      }
-  
-      const [history, totalCount] = await Promise.all([
-        Question_form_num.findAll({
-          where: WhereClause,
-          include: [
-            {
-              model: Package_tryout,
-              attributes: { include: ["slug", "title"] },
-              include: [
-                {
-                  model: Type_package,
-                  attributes: { exclude: ["createdAt", "updatedAt"] },
-                },
-              ],
-            },
-            {
-              model: User_info,
-              attributes: ["name"],
-            },
-          ],
-          limit: limit,
-          offset: offset,
-          order: [["id", "DESC"]],
-        }),
-        Question_form_num.count({
-          where: WhereClause,
-          include: [
-            {
-              model: Package_tryout,
-              include: [
-                {
-                  model: Type_package,
-                },
-              ],
-            },
-            {
-              model: User_info,
-            },
-          ],
-        }),
-      ]);
-  
-      let formattedData = history.map((data) => {
-        const startTime = new Date(data.start_time);
-        const endTime = new Date(data.end_time);
-        const durationMs = endTime - startTime; // Durasi dalam milidetik
-        const durationHrs = Math.floor(durationMs / (1000 * 60 * 60));
-        const durationMins = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-        const durationSecs = Math.floor((durationMs % (1000 * 60)) / 1000);
-  
-        const durationFormatted = `${durationHrs.toString().padStart(2, '0')}:${durationMins
-          .toString()
-          .padStart(2, '0')}:${durationSecs.toString().padStart(2, '0')}`;
-  
-        return {
-          id: data.id,
-          userinfo_id: data?.userinfo_id,
-          name: data?.User_info?.name,
-          skor: parseInt(data?.skor),
-          sertifikat: data?.sertifikat,
-          status: data?.status,
-          duration: durationFormatted,
-          packagetryout_id: data?.packagetryout_id,
-          package_name: data?.Package_tryout ? data?.Package_tryout?.title : null,
-          typepackage_id:
-            data?.Package_tryout && data?.Package_tryout?.Type_package
-              ? data?.Package_tryout?.Type_package.id
-              : null,
-          typepackage_name:
-            data?.Package_tryout && data?.Package_tryout?.Type_package
-              ? data?.Package_tryout?.Type_package.name
-              : null,
-          createdAt: data?.createdAt,
-          updatedAt: data?.updatedAt,
+        const { packagetryout_id } = req.params;
+        const userinfo_id = req.user.role === "User" ? req.user.userId : null;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const offset = (page - 1) * limit;
+
+        if (!packagetryout_id) {
+            return res.status(400).json({
+                status: 400,
+                message: "packagetryout_id is required",
+            });
+        }
+
+        const WhereClause = {
+            packagetryout_id: packagetryout_id,
         };
-      });
-  
-      const pagination = generatePagination(
-        totalCount,
-        page,
-        limit,
-        `/api/user/history/tryout/${packagetryout_id}`
-      );
-  
-      res.status(200).json({
-        status: 200,
-        message: "success get",
-        data: formattedData,
-        pagination: pagination,
-      });
+
+        if (userinfo_id) {
+            WhereClause.userinfo_id = userinfo_id;
+        }
+
+        const [history, totalCount] = await Promise.all([
+            Question_form_num.findAll({
+                where: WhereClause,
+                include: [
+                    {
+                        model: Package_tryout,
+                        attributes: ['id', 'title', 'slug', 'description', 'duration', 'price'],
+                        include: [
+                            {
+                                model: Bank_package,
+                                attributes: ['id', 'packagetryout_id', 'banksoal_id'],
+                                include: [
+                                    {
+                                        model: Bank_soal,
+                                        attributes: ['id', 'title', 'typequestion_id'],
+                                        include: [
+                                            {
+                                                model: Type_question,
+                                                attributes: ['id', 'name'],
+                                            },
+                                            {
+                                                model: Question_form,
+                                                attributes: ['id', 'field', 'tipedata', 'datajson', 'correct_answer'],
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
+                            {
+                                model: Type_package,
+                                attributes: ['id', 'name'],
+                            },
+                        ],
+                    },
+                    {
+                        model: User_info,
+                        attributes: ['id', 'name'],
+                    },
+                ],
+                limit,
+                offset,
+                order: [['createdAt', 'DESC']],
+            }),
+            Question_form_num.count({
+                where: WhereClause,
+                include: [
+                    {
+                        model: Package_tryout,
+                        include: [
+                            {
+                                model: Type_package,
+                            },
+                        ],
+                    },
+                    {
+                        model: User_info,
+                    },
+                ],
+            }),
+        ]);
+
+        const scoreMinimums = {
+            'TWK': 65,
+            'TIU': 80,
+            'TKP': 166,
+        };
+
+        const formattedData = history.map((data) => {
+            const typeQuestionSummary = {};
+            const packageTryout = data.Package_tryout;
+            const userAnswers = {};
+
+            data.Question_form_inputs?.forEach((input) => {
+                userAnswers[input.questionform_id] = input.data;
+            });
+
+            packageTryout.Bank_packages.forEach((bankPackage) => {
+                const bankSoals = Array.isArray(bankPackage.Bank_soal) 
+                    ? bankPackage.Bank_soal 
+                    : [bankPackage.Bank_soal].filter(Boolean);
+                
+                bankSoals.forEach((bankSoal) => {
+                    const typeQuestionId = bankSoal.typequestion_id;
+                    const typeName = bankSoal.Type_question?.name || 'Unknown';
+
+                    if (!typeQuestionSummary[typeQuestionId]) {
+                        typeQuestionSummary[typeQuestionId] = {
+                            typeName: typeName,
+                            totalQuestions: 0,
+                            totalCorrect: 0,
+                            totalIncorrect: 0,
+                            totalUnanswered: 0,
+                            totalScore: 0,
+                        };
+                    }
+
+                    bankSoal.Question_forms.forEach((questionForm) => {
+                        const correctAnswer = questionForm.correct_answer;
+                        const userAnswer = userAnswers[questionForm.id];
+
+                        let isCorrect = false;
+                        let points = 0;
+
+                        if (typeof correctAnswer === 'string' || typeof correctAnswer === 'number') {
+                            isCorrect = String(correctAnswer) === String(userAnswer);
+                            points = isCorrect ? 5 : 0;
+                        } else if (Array.isArray(correctAnswer)) {
+                            const correctObject = correctAnswer.find(
+                                (item) => String(item.id) === String(userAnswer)
+                            );
+                            if (correctObject) {
+                                isCorrect = true;
+                                points = correctObject.point || 0;
+                            }
+                        }
+
+                        typeQuestionSummary[typeQuestionId].totalQuestions += 1;
+
+                        if (userAnswer !== null && userAnswer !== undefined) {
+                            if (isCorrect) {
+                                typeQuestionSummary[typeQuestionId].totalCorrect += 1;
+                                typeQuestionSummary[typeQuestionId].totalScore += points;
+                            } else {
+                                typeQuestionSummary[typeQuestionId].totalIncorrect += 1;
+                            }
+                        } else {
+                            typeQuestionSummary[typeQuestionId].totalUnanswered += 1;
+                        }
+                    });
+                });
+            });
+
+            let isLolos = 'Lulus';
+            Object.values(typeQuestionSummary).forEach((summary) => {
+                const requiredScore = scoreMinimums[summary.typeName] ?? 0;
+                if (summary.totalScore < requiredScore) {
+                    summary.status = 'Tidak Lulus';
+                    isLolos = 'Tidak Lulus';
+                } else {
+                    summary.status = 'Lulus';
+                }
+            });
+
+            const startTime = new Date(data.start_time);
+            const endTime = new Date(data.end_time);
+            const durationMs = endTime - startTime;
+            const durationFormatted = moment.utc(durationMs).format('HH:mm:ss');
+
+            return {
+                id: data.id,
+                userinfo_id: data.userinfo_id,
+                name: data.User_info?.name,
+                skor: parseInt(data.skor),
+                sertifikat: data.sertifikat,
+                status: isLolos,
+                duration: durationFormatted,
+                packagetryout_id: data?.packagetryout_id,
+                package_name: data?.Package_tryout ? data?.Package_tryout?.title : null,
+                typepackage_id:
+                        data?.Package_tryout && data?.Package_tryout?.Type_package
+                          ? data?.Package_tryout?.Type_package.id
+                          : null,
+                typepackage_name:
+                        data?.Package_tryout && data?.Package_tryout?.Type_package
+                          ? data?.Package_tryout?.Type_package.name
+                          : null,
+                createdAt: data?.createdAt,
+                updatedAt: data?.updatedAt,
+            };
+        });
+
+        const pagination = generatePagination(
+            totalCount,
+            page,
+            limit,
+            `/api/user/history/tryout/${packagetryout_id}`
+        );
+
+        res.status(200).json({
+            status: 200,
+            message: 'Success get details for package tryout',
+            data: formattedData,
+            pagination: pagination,
+        });
     } catch (err) {
-      res.status(500).json(response(500, "Internal server error", err));
-      console.log(err);
+        console.error(err);
+        res.status(500).json({
+            status: 500,
+            message: 'Internal server error',
+            error: err.message,
+        });
     }
   },
   
@@ -987,6 +1070,24 @@ module.exports = {
             });
         });
 
+        const scoreMinimums = {
+          "TWK": 65,
+          "TIU": 80,
+          "TKP": 166,
+        };
+
+        let isLolos = "Lulus";
+
+        Object.values(typeQuestionSummary).forEach((summary) => {
+          const requiredScore = scoreMinimums[summary.typeName] ?? 0;
+          if (summary.totalScore >= requiredScore) {
+              summary.status = 'Lulus';
+          } else {
+              summary.status = 'Tidak Lulus';
+              isLolos = "Tidak Lulus";
+          }
+      });
+
         const result = {
             id: packageTryout.id,
             title: packageTryout.title,
@@ -997,6 +1098,7 @@ module.exports = {
             duration: durationFormatted,
             price: packageTryout.price,
             score: parseInt(questionFormNum.skor),
+            statusTryout: isLolos,
             typeQuestionSummary: Object.values(typeQuestionSummary),
         };
 
