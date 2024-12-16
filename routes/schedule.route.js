@@ -11,4 +11,7 @@ route.get('/user/tryout/schedule/get/:id', [mid.checkRolesAndLogout(['Super Admi
 
 
 route.get('/user/event/tryout/get', [mid.checkRolesAndLogout(['Super Admin', 'User'])], scheduleController.getUserScheduleTryout);
+route.get('/user/live/mentoring/tryout/get', scheduleController.getLiveMonitoringScoring);
+route.get('/user/history/mentoring/tryout/get', scheduleController.getHistoryMonitoring);
+
 module.exports = route;
