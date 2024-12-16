@@ -662,123 +662,254 @@ module.exports = {
   },
 
   //mendapatkan data bank soal
+  // getBankSoal: async (req, res) => {
+  //   try {
+  //     const search = req.query.search ?? null;
+  //     const banksoal_id = req.query.banksoal_id ?? null;
+  //     const month = parseInt(req.query.month) || null;
+  //     const year = parseInt(req.query.year) || null;
+  //     const page = parseInt(req.query.page) || 1;
+  //     const limit = parseInt(req.query.limit) || 10;
+  //     const offset = (page - 1) * limit;
+  
+  //     const whereCondition = {};
+  
+  //     if (banksoal_id) {
+  //       whereCondition.id = banksoal_id;
+  //     }
+  
+  //     if (search) {
+  //       whereCondition[Op.or] = [
+  //         {
+  //           title: { [Op.like]: `%${search}%` },
+  //         },
+  //       ];
+  //     }
+  
+  //     // Filter berdasarkan bulan dan tahun (berdasarkan createdAt)
+  //     if (month && year) {
+  //       whereCondition.createdAt = {
+  //         [Op.and]: [
+  //           Sequelize.where(
+  //             Sequelize.fn("MONTH", Sequelize.col("Bank_soal.createdAt")),
+  //             month
+  //           ),
+  //           Sequelize.where(
+  //             Sequelize.fn("YEAR", Sequelize.col("Bank_soal.createdAt")),
+  //             year
+  //           ),
+  //         ],
+  //       };
+  //     } else if (year) {
+  //       whereCondition.createdAt = Sequelize.where(
+  //         Sequelize.fn("YEAR", Sequelize.col("Bank_soal.createdAt")),
+  //         year
+  //       );
+  //     }
+  
+  //     // Ambil data bank soal
+  //     const [packageGets, totalCount] = await Promise.all([
+  //       Bank_soal.findAll({
+  //         where: whereCondition,
+  //         include: [
+  //           {
+  //             model: Type_question,
+  //             attributes: ["id", "name"],
+  //           },
+  //         ],
+  //         limit: limit,
+  //         offset: offset,
+  //         order: [["id", "ASC"]],
+  //       }),
+  //       Bank_soal.count({
+  //         where: whereCondition,
+  //       }),
+  //     ]);
+  
+  //     // Ambil total soal berdasarkan banksoal_id
+  //     const banksoalIds = packageGets.map((pkg) => pkg.id);
+  
+  //     const questionCounts = await Question_form.findAll({
+  //       attributes: [
+  //         "banksoal_id",
+  //         [Sequelize.fn("COUNT", Sequelize.col("id")), "total_soal"],
+  //       ],
+  //       where: {
+  //         banksoal_id: {
+  //           [Op.in]: banksoalIds,
+  //         },
+  //       },
+  //       group: ["banksoal_id"],
+  //     });
+  
+  //     // Map jumlah soal berdasarkan banksoal_id
+  //     const questionCountMap = questionCounts.reduce((map, item) => {
+  //       map[item.banksoal_id] = parseInt(item.dataValues.total_soal, 10);
+  //       return map;
+  //     }, {});
+  
+  //     const modifiedPackageGets = packageGets.map((package) => {
+  //       const { Type_question, ...otherData } = package.dataValues;
+  //       return {
+  //         ...otherData,
+  //         Type_question_name: Type_question?.name,
+  //         Total_question: questionCountMap[package.id] || 0,
+  //       };
+  //     });
+  
+  //     const pagination = generatePagination(
+  //       totalCount,
+  //       page,
+  //       limit,
+  //       "/api/user/bank/question/get"
+  //     );
+  
+  //     res.status(200).json({
+  //       status: 200, 
+  //       message: "success get bank soal",
+  //       data: modifiedPackageGets,
+  //       pagination: pagination,
+  //     });
+  //   } catch (err) {
+  //     res.status(500).json({
+  //       status: 500,
+  //       message: "internal server error",
+  //       error: err.message,
+  //     });
+  //     console.log(err);
+  //     logger.error(`Error : ${err}`);
+  //     logger.error(`Error message: ${err.message}`);
+  //   }
+  // },
+
   getBankSoal: async (req, res) => {
     try {
-      const search = req.query.search ?? null;
-      const banksoal_id = req.query.banksoal_id ?? null;
-      const month = parseInt(req.query.month) || null;
-      const year = parseInt(req.query.year) || null;
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const offset = (page - 1) * limit;
-  
-      const whereCondition = {};
-  
-      if (banksoal_id) {
-        whereCondition.id = banksoal_id;
-      }
-  
-      if (search) {
-        whereCondition[Op.or] = [
-          {
-            title: { [Op.like]: `%${search}%` },
-          },
-        ];
-      }
-  
-      // Filter berdasarkan bulan dan tahun (berdasarkan createdAt)
-      if (month && year) {
-        whereCondition.createdAt = {
-          [Op.and]: [
-            Sequelize.where(
-              Sequelize.fn("MONTH", Sequelize.col("Bank_soal.createdAt")),
-              month
-            ),
-            Sequelize.where(
-              Sequelize.fn("YEAR", Sequelize.col("Bank_soal.createdAt")),
-              year
-            ),
-          ],
-        };
-      } else if (year) {
-        whereCondition.createdAt = Sequelize.where(
-          Sequelize.fn("YEAR", Sequelize.col("Bank_soal.createdAt")),
-          year
-        );
-      }
-  
-      // Ambil data bank soal
-      const [packageGets, totalCount] = await Promise.all([
-        Bank_soal.findAll({
-          where: whereCondition,
-          include: [
-            {
-              model: Type_question,
-              attributes: ["id", "name"],
+        const search = req.query.search ?? null;
+        const banksoal_id = req.query.banksoal_id ?? null;
+        const typequestion_id = req.query.typequestion_id ?? null;
+        const month = parseInt(req.query.month) || null;
+        const year = parseInt(req.query.year) || null;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const offset = (page - 1) * limit;
+    
+        const whereCondition = {};
+    
+        if (banksoal_id) {
+            whereCondition.id = banksoal_id;
+        }
+    
+        if (search) {
+            whereCondition[Op.or] = [
+                { title: { [Op.like]: `%${search}%` } },
+            ];
+        }
+    
+        //filter by typequestion_id
+        if (typequestion_id) {
+            whereCondition.typequestion_id = typequestion_id;
+        }
+    
+        //filter by month and year
+        if (month && year) {
+            whereCondition.createdAt = {
+                [Op.and]: [
+                    Sequelize.where(
+                        Sequelize.fn("MONTH", Sequelize.col("Bank_soal.createdAt")),
+                        month
+                    ),
+                    Sequelize.where(
+                        Sequelize.fn("YEAR", Sequelize.col("Bank_soal.createdAt")),
+                        year
+                    ),
+                ],
+            };
+        } else if (year) {
+            whereCondition.createdAt = Sequelize.where(
+                Sequelize.fn("YEAR", Sequelize.col("Bank_soal.createdAt")),
+                year
+            );
+        }
+    
+        //get data bank soal
+        const [packageGets, totalCount] = await Promise.all([
+            Bank_soal.findAll({
+                where: whereCondition,
+                include: [
+                    {
+                        model: Type_question,
+                        attributes: ["id", "name"],
+                        where: typequestion_id ? { id: typequestion_id } : undefined,
+                    },
+                ],
+                limit: limit,
+                offset: offset,
+                order: [["id", "ASC"]],
+            }),
+            Bank_soal.count({
+                where: whereCondition,
+                include: [
+                    {
+                        model: Type_question,
+                        where: typequestion_id ? { id: typequestion_id } : undefined,
+                    },
+                ],
+            }),
+        ]);
+    
+        //get total soal berdasarkan banksoal_id
+        const banksoalIds = packageGets.map((pkg) => pkg.id);
+    
+        const questionCounts = await Question_form.findAll({
+            attributes: [
+                "banksoal_id",
+                [Sequelize.fn("COUNT", Sequelize.col("id")), "total_soal"],
+            ],
+            where: {
+                banksoal_id: {
+                    [Op.in]: banksoalIds,
+                },
             },
-          ],
-          limit: limit,
-          offset: offset,
-          order: [["id", "ASC"]],
-        }),
-        Bank_soal.count({
-          where: whereCondition,
-        }),
-      ]);
-  
-      // Ambil total soal berdasarkan banksoal_id
-      const banksoalIds = packageGets.map((pkg) => pkg.id);
-  
-      const questionCounts = await Question_form.findAll({
-        attributes: [
-          "banksoal_id",
-          [Sequelize.fn("COUNT", Sequelize.col("id")), "total_soal"],
-        ],
-        where: {
-          banksoal_id: {
-            [Op.in]: banksoalIds,
-          },
-        },
-        group: ["banksoal_id"],
-      });
-  
-      // Map jumlah soal berdasarkan banksoal_id
-      const questionCountMap = questionCounts.reduce((map, item) => {
-        map[item.banksoal_id] = parseInt(item.dataValues.total_soal, 10);
-        return map;
-      }, {});
-  
-      const modifiedPackageGets = packageGets.map((package) => {
-        const { Type_question, ...otherData } = package.dataValues;
-        return {
-          ...otherData,
-          Type_question_name: Type_question?.name,
-          Total_question: questionCountMap[package.id] || 0,
-        };
-      });
-  
-      const pagination = generatePagination(
-        totalCount,
-        page,
-        limit,
-        "/api/user/bank/question/get"
-      );
-  
-      res.status(200).json({
-        status: 200, 
-        message: "success get bank soal",
-        data: modifiedPackageGets,
-        pagination: pagination,
-      });
+            group: ["banksoal_id"],
+        });
+    
+        //map jumlah soal berdasarkan banksoal_id
+        const questionCountMap = questionCounts.reduce((map, item) => {
+            map[item.banksoal_id] = parseInt(item.dataValues.total_soal, 10);
+            return map;
+        }, {});
+    
+        const modifiedPackageGets = packageGets.map((package) => {
+            const { Type_question, ...otherData } = package.dataValues;
+            return {
+                ...otherData,
+                Type_question_name: Type_question?.name,
+                Total_question: questionCountMap[package.id] || 0,
+            };
+        });
+    
+        const pagination = generatePagination(
+            totalCount,
+            page,
+            limit,
+            "/api/user/bank/question/get"
+        );
+    
+        res.status(200).json({
+            status: 200, 
+            message: "success get bank soal",
+            data: modifiedPackageGets,
+            pagination: pagination,
+        });
     } catch (err) {
-      res.status(500).json({
-        status: 500,
-        message: "internal server error",
-        error: err.message,
-      });
-      console.log(err);
-      logger.error(`Error : ${err}`);
-      logger.error(`Error message: ${err.message}`);
+        res.status(500).json({
+            status: 500,
+            message: "internal server error",
+            error: err.message,
+        });
+        console.log(err);
+        logger.error(`Error : ${err}`);
+        logger.error(`Error message: ${err.message}`);
     }
   },
 
