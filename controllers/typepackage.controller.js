@@ -13,7 +13,6 @@ module.exports = {
         try {
             let typepackageGets;
             const search = req.query.search ?? null;
-            // const provinsi_id = req.query.provinsi_id ?? null;
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
             const offset = (page - 1) * limit;
@@ -24,10 +23,6 @@ module.exports = {
             if (search) {
                 filter.name = { [Op.like]: `%${search}%` };
             }
-    
-            // if (provinsi_id) {
-            //     filter.provinsi_id = provinsi_id;
-            // }
 
             [typepackageGets, totalCount] = await Promise.all([
                 Type_package.findAll({
