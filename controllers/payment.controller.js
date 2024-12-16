@@ -36,23 +36,47 @@ module.exports = {
     // get seluruh data laporan pembayaran
     getReportPayment: async (req, res) => {
         try {
+            const search = req.query.search ?? null;
+            const typepackage_id = req.query.typepackage_id ?? null;
+            const startDate = req.query.startDate ?? null; 
+            const endDate = req.query.endDate ?? null;
             const showDeleted = req.query.showDeleted ?? null;
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
             const offset = (page - 1) * limit;
             let userGets;
             let totalCount;
-
+    
             const whereCondition = {
                 role_id: 2
-            }
-
+            };
+    
             if (showDeleted !== null) {
                 whereCondition.deletedAt = { [Op.not]: null };
             } else {
                 whereCondition.deletedAt = null;
             }
-
+    
+            //filter by arrange date
+            if (startDate && endDate) {
+                whereCondition.createdAt = {
+                    [Op.between]: [new Date(startDate), new Date(endDate)]
+                };
+            } else if (startDate) {
+                whereCondition.createdAt = {
+                    [Op.gte]: new Date(startDate)
+                };
+            } else if (endDate) {
+                whereCondition.createdAt = {
+                    [Op.lte]: new Date(endDate)
+                };
+            }
+    
+            //filter by typepackage_id
+            if (typepackage_id) {
+                whereCondition.typepackage_id = typepackage_id;
+            }
+    
             [userGets, totalCount] = await Promise.all([
                 User.findAll({
                     include: [
@@ -64,14 +88,21 @@ module.exports = {
                                 {
                                     model: Type_payment,
                                     attributes: ['title', 'id'],
-                                }]
+                                }
+                            ]
                         },
                         {
                             model: User_info,
                             as: 'User_info',
+                            where: search ? {
+                                [Op.or]: [
+                                    { name: { [Op.like]: `%${search}%` } }
+                                ]
+                            } : undefined,
                         },
                         {
                             model: Type_package,
+                            where: typepackage_id ? { id: typepackage_id } : undefined 
                         },
                     ],
                     limit: limit,
@@ -81,10 +112,26 @@ module.exports = {
                     where: whereCondition,
                 }),
                 User.count({
+                    include: [
+                        {
+                            model: User_info,
+                            as: 'User_info',
+                            where: search ? {
+                                [Op.or]: [
+                                    { name: { [Op.like]: `%${search}%` } }
+                                ]
+                            } : undefined,
+                        },
+                        {
+                            model: Type_package,
+                            where: typepackage_id ? { id: typepackage_id } : undefined
+                        },
+                    ],
                     where: whereCondition
                 })
             ]);
-
+    
+            //format return data
             let formattedUsers = userGets.map(user => {
                 return {
                     id: user.id,
@@ -93,29 +140,33 @@ module.exports = {
                     email: user.User_info?.email,
                     type_package: user.Type_package?.name,
                     payment_id: user.Payment?.id,
-                    metode_payment: user.Payment?.Type_payment.title ?? null,
+                    metode_payment: user.Payment?.Type_payment?.title ?? null,
                     price: user.Payment?.price ?? null,
                     receipt: user.Payment?.receipt ?? null,
                     tanggal: user.createdAt,
                     updatedAt: user.updatedAt
                 };
             });
-
+    
             const pagination = generatePagination(totalCount, page, limit, '/api/user/get');
-
+    
             res.status(200).json({
                 status: 200,
                 message: 'success get',
                 data: formattedUsers,
                 pagination: pagination
             });
-
+    
         } catch (err) {
-            res.status(500).json(response(500, 'internal server error', err));
+            res.status(500).json({
+                status: 500,
+                message: 'internal server error',
+                error: err.message
+            });
             console.log(err);
         }
     },
-
+    
     // get seluruh data laporan pembayaran by slug user
     getReportPaymentBySlug: async (req, res) => {
         try {
@@ -408,7 +459,7 @@ module.exports = {
             error: error.message,
           });
         }
-      },
+    },
 
 
 
