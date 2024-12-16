@@ -4,6 +4,13 @@ const {
   Schedule,
   Package_tryout,
   Type_package,
+  Question_form,
+  Question_form_num,
+  Question_form_input,
+  User_info,
+  Bank_package,
+  Bank_soal,
+  Type_question,
   sequelize,
 } = require("../models");
 
@@ -51,6 +58,8 @@ module.exports = {
     try {
         const search = req.query.search ?? null;
         const showDeleted = req.query.showDeleted === "true";
+        const startDate = req.query.startDate ?? null;
+        const endDate = req.query.endDate ?? null;
         const month = parseInt(req.query.month) || null;
         const year = parseInt(req.query.year) || null;
         const page = parseInt(req.query.page) || 1;
@@ -58,86 +67,118 @@ module.exports = {
         const offset = (page - 1) * limit;
         let scheduleData;
         let totalCount;
-    
+
         const whereCondition = {};
-    
+
+        //filter search
         if (search) {
-          whereCondition[Op.or] = [
-            {
-              title: { [Op.like]: `%${search}%` },
-            },
-          ];
+            whereCondition[Op.or] = [
+                { title: { [Op.like]: `%${search}%` } },
+                { '$Package_tryout.title$': { [Op.like]: `%${search}%` } }
+            ];
         }
-    
+
+        //filter data softdelete
         if (showDeleted) {
-          whereCondition.deletedAt = { [Op.not]: null };
+            whereCondition.deletedAt = { [Op.not]: null };
         } else {
-          whereCondition.deletedAt = null;
+            whereCondition.deletedAt = null;
         }
-    
+
+        //filter arrange date
+        if (startDate && endDate) {
+            whereCondition.tanggal = {
+                [Op.between]: [new Date(startDate), new Date(endDate)]
+            };
+        } else if (startDate) {
+            whereCondition.tanggal = {
+                [Op.gte]: new Date(startDate)
+            };
+        } else if (endDate) {
+            whereCondition.tanggal = {
+                [Op.lte]: new Date(endDate)
+            };
+        }
+
         if (month && year) {
-          whereCondition.tanggal = {
-            [Op.and]: [
-              Sequelize.where(Sequelize.fn('MONTH', Sequelize.col('tanggal')), month),
-              Sequelize.where(Sequelize.fn('YEAR', Sequelize.col('tanggal')), year),
-            ],
-          };
+            whereCondition.tanggal = {
+                [Op.and]: [
+                    Sequelize.where(Sequelize.fn('MONTH', Sequelize.col('tanggal')), month),
+                    Sequelize.where(Sequelize.fn('YEAR', Sequelize.col('tanggal')), year),
+                ],
+            };
         } else if (year) {
-          whereCondition.tanggal = Sequelize.where(Sequelize.fn('YEAR', Sequelize.col('tanggal')), year);
+            whereCondition.tanggal = Sequelize.where(Sequelize.fn('YEAR', Sequelize.col('tanggal')), year);
         }
-    
+
         [scheduleData, totalCount] = await Promise.all([
-          Schedule.findAll({
-            where: whereCondition,
-            include: [
-              {
-                model: Package_tryout,
-                attributes: ["id", "title"], 
-              },
-            ],
-            limit: limit,
-            offset: offset,
-            order: [["tanggal", "ASC"], ["waktu", "ASC"]],
-          }),
-          Schedule.count({
-            where: whereCondition,
-          }),
+            Schedule.findAll({
+                where: whereCondition,
+                include: [
+                    {
+                        model: Package_tryout,
+                        attributes: ["id", "title"], 
+                    },
+                ],
+                limit: limit,
+                offset: offset,
+                order: [["tanggal", "ASC"], ["waktu", "ASC"]],
+            }),
+            Schedule.count({
+                where: whereCondition,
+                include: [
+                    {
+                        model: Package_tryout,
+                        attributes: [],
+                        where: search ? { title: { [Op.like]: `%${search}%` } } : undefined
+                    }
+                ]
+            }),
         ]);
-    
-        // Modifikasi hasil untuk mencocokkan struktur yang diinginkan
+
         const modifiedScheduleData = scheduleData.map((schedule) => {
-          const { id, packagetryout_id, title, tanggal, waktu, deletedAt, createdAt, updatedAt, Package_tryout } = schedule.dataValues; 
-          return {
-            id: id, 
-            scheduleTitle: title, 
-            packagetryout_id: packagetryout_id, 
-            packageTryoutTitle: Package_tryout?.title, 
-            tanggal: tanggal, 
-            waktu: waktu, 
-            deletedAt: deletedAt, 
-            createdAt: createdAt, 
-            updatedAt: updatedAt
-          };
+            const {
+              id,
+              packagetryout_id,
+              title,
+              tanggal,
+              waktu,
+              deletedAt,
+              createdAt,
+              updatedAt,
+              Package_tryout
+            } = schedule.dataValues; 
+            return {
+                id: id, 
+                scheduleTitle: title, 
+                packagetryout_id: packagetryout_id, 
+                packageTryoutTitle: Package_tryout?.title, 
+                tanggal: tanggal, 
+                waktu: waktu, 
+                deletedAt: deletedAt, 
+                createdAt: createdAt, 
+                updatedAt: updatedAt
+            };
         });
-    
+
         const pagination = generatePagination(totalCount, page, limit, "/api/user/tryout/schedule/get");
-    
+
         res.status(200).json({
-          status: 200,
-          message: "Success get schedule tryout",
-          data: modifiedScheduleData,
-          pagination: pagination,
+            status: 200,
+            message: "Success get schedule tryout",
+            data: modifiedScheduleData,
+            pagination: pagination,
         });
-      } catch (err) {
+    } catch (err) {
         res.status(500).json({
-          status: 500,
-          message: "Internal server error",
-          error: err.message,
+            status: 500,
+            message: "Internal server error",
+            error: err.message,
         });
         console.log(err);
         logger.error(`Error: ${err}`);
         logger.error(`Error message: ${err.message}`);
-      }
+    }
   },
 
   //get schedule untuk user
@@ -243,5 +284,209 @@ module.exports = {
         console.log(err);
     }
   },
+
+  //get live monitoring tryout
+  getLiveMonitoringScoring: async (req, res) => {
+    try {
+        const { schedule_id } = req.query;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+
+        //schedule_id tidak diinput, kembalikan response dengan data null
+        if (!schedule_id) {
+            return res.status(200).json({
+                code: 200,
+                message: "schedule ID is not found",
+                scheduleTitle: null,
+                tryoutTitle: null,
+                data: null,
+            });
+        }
+
+        //get data schedule untuk mendapatkan package_tryout_id dan title
+        const schedule = await Schedule.findOne({
+            where: { id: schedule_id },
+            attributes: ["id", "title", "packagetryout_id"],
+            include: [
+                {
+                    model: Package_tryout,
+                    attributes: ["title", "duration"],
+                },
+            ],
+        });
+
+        if (!schedule) {
+            return res.status(404).json({ code: 404, message: "Schedule not found" });
+        }
+
+        const tryoutId = schedule.packagetryout_id;
+
+        //get data peserta berdasarkan tryout ID
+        const participants = await Question_form_num.findAll({
+            where: { packagetryout_id: tryoutId },
+            include: [
+                {
+                    model: User_info,
+                    attributes: ["id", "name"],
+                },
+            ],
+            limit,
+            offset: (page - 1) * limit,
+        });
+
+        if (!participants.length) {
+            return res.status(404).json({ code: 404, message: "No participants found" });
+        }
+
+        const currentTime = new Date();
+        const formattedParticipants = await Promise.all(
+            participants.map(async (participant) => {
+                const { User_info, start_time, end_time } = participant;
+
+                //hitung waktu tersisa
+                const endTime = new Date(end_time);
+                const timeRemainingMs = endTime - currentTime;
+                const timeRemaining = timeRemainingMs > 0
+                    ? new Date(timeRemainingMs).toISOString().substr(11, 8)
+                    : "00:00:00";
+
+                //get jawaban peserta dan hitung soal yang dikerjakan
+                const answers = await Question_form_input.findAll({
+                    where: { questionformnum_id: participant.id },
+                });
+
+                //get bank soal berdasarkan tryout_id
+                const bankPackages = await Bank_package.findAll({
+                    where: { packagetryout_id: tryoutId },
+                    include: [
+                        {
+                            model: Bank_soal,
+                            include: [
+                                {
+                                    model: Type_question,
+                                    attributes: ["name"],
+                                },
+                                {
+                                    model: Question_form,
+                                    attributes: ["id"],
+                                },
+                            ],
+                        },
+                    ],
+                });
+
+                const questionSummary = {};
+
+                bankPackages.forEach((bankPackage) => {
+                    const { Bank_soal } = bankPackage;
+                    const typeName = Bank_soal?.Type_question?.name;
+
+                    if (!typeName) return;
+
+                    if (!questionSummary[typeName]) {
+                        questionSummary[typeName] = {
+                            totalQuestions: 0,
+                            answered: 0,
+                            passingGrade: 0, //default passing grade
+                        };
+                    }
+
+                    questionSummary[typeName].totalQuestions += Bank_soal.Question_forms.length;
+                    questionSummary[typeName].answered += answers.filter((answer) =>
+                        Bank_soal.Question_forms.some((question) => question.id === answer.questionform_id)
+                    ).length;
+
+                    //data passing grade
+                    const passingGrades = { TWK: 65, TIU: 80, TKP: 166 };
+                    questionSummary[typeName].passingGrade = passingGrades[typeName] || 0;
+                });
+
+                return {
+                    name: User_info.name,
+                    timeRemaining,
+                    passingGrade: Object.entries(questionSummary).map(([typeName, summary]) => ({
+                        type: typeName,
+                        passingGrade: `${summary.totalQuestions * 5}/${summary.passingGrade}`, 
+                    })),
+                    questionsAnswered: Object.entries(questionSummary).map(([typeName, summary]) => ({
+                        type: typeName,
+                        answered: `${summary.answered}/${summary.totalQuestions}`,
+                    })),
+                };
+            })
+        );
+
+        res.status(200).json({
+            code: 200,
+            message: "Success get live monitoring scoring",
+            scheduleTitle: schedule.title,
+            tryoutTitle: schedule.Package_tryout?.title,
+            data: formattedParticipants,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            code: 500,
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+  },
+  
+  //get history tryout monitoring
+  getHistoryMonitoring: async (req, res) => {
+    try {
+        const { tryoutId, startDate, endDate, search } = req.query;
+
+        // Query filter
+        const whereCondition = {
+            ...(tryoutId && { packagetryout_id: tryoutId }),
+            ...(startDate && endDate && {
+                createdAt: {
+                    [Op.between]: [new Date(startDate), new Date(endDate)],
+                },
+            }),
+        };
+
+        // Ambil data tryout dari database
+        const historyData = await Question_form_num.findAll({
+            where: whereCondition,
+            include: [
+                {
+                    model: Package_tryout,
+                    attributes: ['id', 'title'],
+                },
+                {
+                    model: User_info,
+                    attributes: ['name'],
+                },
+            ],
+            order: [['skor', 'DESC']], // Ranking berdasarkan skor tertinggi
+        });
+
+        // Format response
+        const formattedData = historyData.map((item, index) => ({
+            no: index + 1,
+            ranking: index + 1,
+            nama: item.User_info?.name || 'Unknown',
+            skor: item.skor || 0,
+        }));
+
+        res.status(200).json({
+            code: 200,
+            message: 'Success get history tryout',
+            data: formattedData,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            code: 500,
+            message: 'Internal Server Error',
+            error: error.message,
+        });
+    }
+  },
+
+
 
 };
