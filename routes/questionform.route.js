@@ -27,5 +27,7 @@ route.get('/user/question/formulir/get', [mid.checkRolesAndLogout(['Super Admin'
 route.get('/user/question/formulir/get/:id', [mid.checkRolesAndLogout(['Super Admin', 'User'])], questionformController.getQuestionFormById); 
 
 route.post('/user/import/bank/question', [mid.checkRolesAndLogout(['Super Admin'])], upload.single('file'), questionformController.importBankSoal);
+route.post('/user/export/bank/question', [mid.checkRolesAndLogout(['Super Admin'])], questionformController.exportBankSoal);
+
 
 module.exports = route;
