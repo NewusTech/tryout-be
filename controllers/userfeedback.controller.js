@@ -80,85 +80,92 @@ module.exports = {
   // get all history feedback
   getAllUserFeedbackHistory: async (req, res) => {
     try {
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const offset = (page - 1) * limit;
-  
-      // Ambil semua feedback terkait dengan user
-      const [history, totalCount] = await Promise.all([
-        User_feedback.findAll({
-          include: [
-            {
-              model: Package_tryout,
-              attributes: ["id", "title"],
-            },
-            {
-              model: User_info,
-              attributes: ["id", "name"],
-            },
-          ],
-          limit: limit,
-          offset: offset,
-          order: [["id", "DESC"]],
-        }),
-        User_feedback.count({
-        }),
-      ]);
-  
-      // Fungsi untuk menghitung total nilai dari feedback dan mengonversi ke skala 100
-      const calculateTotalFeedbackAndNilai = (feedbacks) => {
-        const totalFeedback = feedbacks.length;
-  
-        const totalNilai = feedbacks.reduce((sum, feedback) => {
-          const nilaiTotal =
-            feedback.question_1 * 25;
-  
-          return sum + nilaiTotal;
-        }, 0);
-  
-        const nilaiRataRata = totalFeedback > 0 ? totalNilai / (totalFeedback * 1) : 0; // Dibagi dengan 4 pertanyaan
-        return {
-          totalFeedback,
-          nilaiRataRata,
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const offset = (page - 1) * limit;
+        const { packagetryout_id } = req.query;
+
+        //create where clause
+        const whereClause = {};
+        if (packagetryout_id) {
+            whereClause.packagetryout_id = packagetryout_id;
+        }
+
+        //get semua feedback user
+        const [history, totalCount] = await Promise.all([
+            User_feedback.findAll({
+                where: whereClause,
+                include: [
+                    {
+                        model: Package_tryout,
+                        attributes: ["id", "title"],
+                    },
+                    {
+                        model: User_info,
+                        attributes: ["id", "name"],
+                    },
+                ],
+                limit: limit,
+                offset: offset,
+                order: [["id", "DESC"]],
+            }),
+            User_feedback.count({
+                where: whereClause
+            }),
+        ]);
+
+        //create total nilai dari feedback
+        const calculateTotalFeedbackAndNilai = (feedbacks) => {
+            const totalFeedback = feedbacks.length;
+
+            const totalNilai = feedbacks.reduce((sum, feedback) => {
+                const nilaiTotal = feedback.question_1 * 25;
+                return sum + nilaiTotal;
+            }, 0);
+
+            const nilaiRataRata = totalFeedback > 0 ? totalNilai / (totalFeedback * 1) : 0; 
+            return {
+                totalFeedback,
+                nilaiRataRata,
+            };
         };
-      };
-  
-      // Format data untuk setiap feedback yang didapatkan
-      let formattedData = history.map((data) => {
-        const feedbackSummary = calculateTotalFeedbackAndNilai([data]);
-  
-        return {
-          id: data.id,
-          name: data.User_info ? data.User_info.name : null,
-          package_id: data.Package_tryout ? data.Package_tryout.id : null,
-          package_name: data.Package_tryout ? data.Package_tryout.title : null,
-          total_feedback: feedbackSummary.totalFeedback,
-          nila_feedback: feedbackSummary.nilaiRataRata, // Nilai rata-rata di skala 100
-          created_at: data.createdAt,
-        };
-      });
-  
-      // Generate pagination
-      const pagination = generatePagination(
-        totalCount,
-        page,
-        limit,
-        `/api/user/history/feedback`
-      );
-  
-      res.status(200).json({
-        status: 200,
-        message: "Success get all feedback history",
-        data: formattedData,
-        pagination: pagination,
-      });
+
+        //format data untuk setiap feedback
+        let formattedData = history.map((data) => {
+            const feedbackSummary = calculateTotalFeedbackAndNilai([data]);
+
+            return {
+                id: data.id,
+                name: data.User_info ? data.User_info.name : null,
+                package_id: data.Package_tryout ? data.Package_tryout.id : null,
+                package_name: data.Package_tryout ? data.Package_tryout.title : null,
+                total_feedback: feedbackSummary.totalFeedback,
+                nilai_feedback: feedbackSummary.nilaiRataRata,
+                created_at: data.createdAt,
+            };
+        });
+
+        //generate pagination
+        const pagination = generatePagination(
+            totalCount,
+            page,
+            limit,
+            `/api/user/history/feedback`
+        );
+
+        res.status(200).json({
+            status: 200,
+            message: "Success get all feedback history",
+            data: formattedData,
+            pagination: pagination,
+        });
     } catch (err) {
-      res.status(500).json({
-        status: 500,
-        message: "Internal server error",
-        error: err,
-      });
-      console.log(err);
+        res.status(500).json({
+            status: 500,
+            message: "Internal server error",
+            error: err,
+        });
+        console.log(err);
     }
   },
   
@@ -269,7 +276,7 @@ module.exports = {
           asal_instansi: data.User_info ? data.User_info.asal_instansi : null,
           gender: data.User_info ? data.User_info.gender : null,
           kritiksaran: data.feedback,
-          nilai: totalNilai, // Nilai rata-rata per user
+          nilai: totalNilai,
           date: data.createdAt,
         };
       });
@@ -296,7 +303,7 @@ module.exports = {
         message: "Success get data",
         data: formattedData,
         package: package,
-        rataRataNilaiKeseluruhan: rataRataNilaiKeseluruhan.toFixed(2), // Rata-rata keseluruhan dari semua user
+        rataRataNilaiKeseluruhan: rataRataNilaiKeseluruhan.toFixed(2), 
         pagination: pagination,
       });
     } catch (err) {
@@ -508,5 +515,4 @@ module.exports = {
     }
   },
   
-
 };
