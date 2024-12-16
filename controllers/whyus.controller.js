@@ -2,6 +2,7 @@ const { response } = require('../helpers/response.formatter');
 const { Why_us } = require('../models');
 const Validator = require("fastest-validator");
 const v = new Validator();
+const { Op, Sequelize } = require('sequelize');
 const { generatePagination } = require('../pagination/pagination');
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 
@@ -49,20 +50,44 @@ module.exports = {
     //mendapatkan semua data why us
     getWhyUs: async (req, res) => {
         try {
-            //mendapatkan data why us berdasarkan
-            let whyusGet = await Why_us.findAll();
-
-            //cek jika why us tidak ada
-            if (!whyusGet) {
-                res.status(404).json(response(404, 'why us not found'));
-                return;
+            const { search } = req.query;
+    
+            //create where clause dinamis
+            const whereClause = {};
+    
+            if (search) {
+                whereClause[Op.or] = [
+                    { title: { [Op.like]: `%${search}%` } },
+                    { description: { [Op.like]: `%${search}%` } }
+                ];
+            }
+    
+            //get data why us dengan pencarian
+            let whyusGet = await Why_us.findAll({
+                where: whereClause
+            });
+    
+            //jika why us tidak ditemukan
+            if (!whyusGet || whyusGet.length === 0) {
+                return res.status(404).json({
+                    code: 404,
+                    message: 'Why us not found',
+                    data: []
+                });
             }
 
-            //response menggunakan helper response.formatter
-            res.status(200).json(response(200, 'success get why us', whyusGet));
+            res.status(200).json({
+                code: 200,
+                message: 'Success get why us',
+                data: whyusGet
+            });
         } catch (err) {
-            res.status(500).json(response(500, 'internal server error', err));
-            console.log(err);
+            console.error('Error:', err.message);
+            res.status(500).json({
+                code: 500,
+                message: 'Internal server error',
+                error: err.message
+            });
         }
     },
 
@@ -144,7 +169,6 @@ module.exports = {
             console.log(err);
         }
     },
-    
 
     //menghapus why us berdasarkan id
     deleteWhyUs: async (req, res) => {
