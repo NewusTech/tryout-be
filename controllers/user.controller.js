@@ -521,23 +521,33 @@ module.exports = {
     //mendapatkan semua data admin
     getAdmin: async (req, res) => {
         try {
+            const search = req.query.search ?? null;
             const showDeleted = req.query.showDeleted ?? null;
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
             const offset = (page - 1) * limit;
             let userGets;
             let totalCount;
-
+    
+            //add where clause untuk user
             const whereCondition = {
                 role_id: 1
             };
-
+    
+            //add pencarian di kolom slug pada User
+            if (search) {
+                whereCondition[Op.or] = [
+                    { slug: { [Op.like]: `%${search}%` } },
+                ];
+            }
+    
+            //filter untuk data yang telah dihapus
             if (showDeleted !== null) {
                 whereCondition.deletedAt = { [Op.not]: null };
             } else {
                 whereCondition.deletedAt = null;
             }
-
+    
             [userGets, totalCount] = await Promise.all([
                 User.findAll({
                     include: [
@@ -549,6 +559,12 @@ module.exports = {
                         {
                             model: User_info,
                             as: 'User_info',
+                            where: search ? {
+                                [Op.or]: [
+                                    { name: { [Op.like]: `%${search}%` } },
+                                    { email: { [Op.like]: `%${search}%` } },
+                                ]
+                            } : undefined,
                         },
                     ],
                     limit: limit,
@@ -558,10 +574,22 @@ module.exports = {
                     where: whereCondition,
                 }),
                 User.count({
-                    where: whereCondition
+                    include: [
+                        {
+                            model: User_info,
+                            as: 'User_info',
+                            where: search ? {
+                                [Op.or]: [
+                                    { name: { [Op.like]: `%${search}%` } },
+                                    { email: { [Op.like]: `%${search}%` } },
+                                ]
+                            } : undefined,
+                        },
+                    ],
+                    where: whereCondition,
                 })
             ]);
-
+    
             let formattedUsers = userGets.map(user => {
                 return {
                     id: user.id,
@@ -572,18 +600,22 @@ module.exports = {
                     updatedAt: user.updatedAt
                 };
             });
-
+    
             const pagination = generatePagination(totalCount, page, limit, '/api/user/get');
-
+    
             res.status(200).json({
                 status: 200,
                 message: 'success get',
                 data: formattedUsers,
                 pagination: pagination
             });
-
+    
         } catch (err) {
-            res.status(500).json(response(500, 'internal server error', err));
+            res.status(500).json({
+                status: 500,
+                message: 'internal server error',
+                error: err.message
+            });
             console.log(err);
         }
     },
@@ -591,23 +623,39 @@ module.exports = {
     //mendapatkan semua data user
     getUser: async (req, res) => {
         try {
+            const search = req.query.search ?? null;
             const showDeleted = req.query.showDeleted ?? null;
+            const typepackage_id = req.query.typepackage_id ?? null;
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
             const offset = (page - 1) * limit;
             let userGets;
             let totalCount;
-
+    
+            //where clause untuk tabel User
             const whereCondition = {
                 role_id: 2
             };
-
+    
+            // filter pencarian berdasarkan slug
+            if (search) {
+                whereCondition[Op.or] = [
+                    { slug: { [Op.like]: `%${search}%` } },
+                ];
+            }
+    
+            // filter untuk pengguna yang dihapus (soft delete)
             if (showDeleted !== null) {
                 whereCondition.deletedAt = { [Op.not]: null };
             } else {
                 whereCondition.deletedAt = null;
             }
 
+            //filter berdasarkan typepackage_id
+            if (typepackage_id) {
+                whereCondition.typepackage_id = typepackage_id;
+            }
+    
             [userGets, totalCount] = await Promise.all([
                 User.findAll({
                     include: [
@@ -619,6 +667,12 @@ module.exports = {
                         {
                             model: User_info,
                             as: 'User_info',
+                            where: search ? {
+                                [Op.or]: [
+                                    { name: { [Op.like]: `%${search}%` } },
+                                    { email: { [Op.like]: `%${search}%` } },
+                                ]
+                            } : undefined,
                         },
                     ],
                     limit: limit,
@@ -628,10 +682,23 @@ module.exports = {
                     where: whereCondition,
                 }),
                 User.count({
-                    where: whereCondition
+                    include: [
+                        {
+                            model: User_info,
+                            as: 'User_info',
+                            where: search ? {
+                                [Op.or]: [
+                                    { name: { [Op.like]: `%${search}%` } },
+                                    { email: { [Op.like]: `%${search}%` } },
+                                ]
+                            } : undefined,
+                        },
+                    ],
+                    where: whereCondition,
                 })
             ]);
-
+    
+            //format return data
             let formattedUsers = userGets.map(user => {
                 return {
                     id: user.id,
@@ -642,7 +709,7 @@ module.exports = {
                     updatedAt: user.updatedAt
                 };
             });
-
+    
             const pagination = generatePagination(totalCount, page, limit, '/api/user/get');
 
             res.status(200).json({
@@ -651,9 +718,13 @@ module.exports = {
                 data: formattedUsers,
                 pagination: pagination
             });
-
+    
         } catch (err) {
-            res.status(500).json(response(500, 'internal server error', err));
+            res.status(500).json({
+                status: 500,
+                message: 'internal server error',
+                error: err.message
+            });
             console.log(err);
         }
     },
