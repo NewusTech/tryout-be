@@ -436,4 +436,115 @@ module.exports = {
         }
     },
 
+    getUserRapor: async (req, res) => {
+        try {
+            //get userinfo_id dari params
+            const { userinfo_id } = req.params;
+    
+            let rapor = await Rapor.findOne({
+                where: {
+                    userinfo_id: userinfo_id,
+                    status: 1
+                },
+                attributes: ['id', 'userinfo_id', 'rapor', 'status'],
+            });
+    
+            //jika data tidak ditemukan
+            if (!rapor) {
+                return res.status(404).json({
+                    status: 404,
+                    message: 'Data rapor tidak ditemukan untuk userinfo_id ini',
+                    data: {},
+                });
+            }
+    
+            res.status(200).json({
+                status: 200,
+                message: 'Success mendapatkan data rapor',
+                data: {
+                    id: rapor.id,
+                    userinfo_id: rapor.userinfo_id,
+                    rapor: rapor.rapor,
+                    status: rapor.status,
+                },
+            });
+        } catch (err) {
+            
+            console.error('Error fetching rapor data:', err);
+            res.status(500).json({
+                status: 500,
+                message: 'Internal server error',
+                error: err.message,
+            });
+        }
+    },
+
+    updateStatusRapor: async (req, res) => {
+        try {
+            const { idrapor } = req.params;
+    
+            let raporGet = await Rapor.findOne({
+                where: { id: idrapor },
+                attributes: ['id', 'rapor', 'userinfo_id', 'status', 'createdAt', 'updatedAt']
+            });
+    
+            //cek apakah data rapor ditemukan
+            if (!raporGet) {
+                return res.status(404).json({
+                    status: 404,
+                    message: "Rapor tidak ditemukan",
+                    data: {}
+                });
+            }
+    
+            //schema validasi untuk status
+            const schema = {
+                status: { type: "number", min: 0, max: 1 }
+            };
+    
+            let raporUpdateObj = {
+                status: req.body.status ?? 1 
+            };
+    
+            //validasi data yang akan diperbarui
+            const validate = v.validate(raporUpdateObj, schema);
+            if (validate.length > 0) {
+                return res.status(400).json({
+                    status: 400,
+                    message: "Validation failed",
+                    errors: validate
+                });
+            }
+    
+            //update status rapor
+            await Rapor.update(raporUpdateObj, { where: { id: idrapor } });
+    
+            //get data rapor setelah diperbarui
+            let raporAfterUpdate = await Rapor.findOne({
+                where: { id: idrapor },
+                attributes: ['id', 'rapor', 'userinfo_id', 'status', 'createdAt', 'updatedAt'] 
+            });
+    
+            res.status(200).json({
+                status: 200,
+                message: "Success update status rapor",
+                data: {
+                    id: raporAfterUpdate.id,
+                    rapor: raporAfterUpdate.rapor,
+                    userinfo_id: raporAfterUpdate.userinfo_id,
+                    status: raporAfterUpdate.status,
+                    createdAt: raporAfterUpdate.createdAt,
+                    updatedAt: raporAfterUpdate.updatedAt
+                }
+            });
+        } catch (err) {
+            console.error("Error updating status rapor:", err);
+            res.status(500).json({
+                status: 500,
+                message: "Internal server error",
+                error: err.message
+            });
+        }
+    }
+
 };
