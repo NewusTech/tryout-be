@@ -222,7 +222,7 @@ module.exports = {
             });
     
             //get data dari API
-            const apiURL = `http://localhost:3000/api/user/rapor/get/${userinfo_id}`;
+            const apiURL = `${process.env.SERVER_URL}/user/rapor/get/${userinfo_id}`;
             let raporData = [];
             try {
                 const apiResponse = await axios.get(apiURL);
@@ -363,17 +363,15 @@ module.exports = {
 
     generateOutputRapor: async (req, res) => {
         try {
-            // 1. Ambil ID user dari autentikasi
+            //get ID user dari autentikasi
             const userinfo_id = req.user.userId;
     
             if (!userinfo_id) {
                 return res.status(400).json({ message: "User not authorized" });
             }
     
-            // 2. URL API untuk mendapatkan PDF
-            const apiURL = `http://localhost:3000/api/user/rapor/output/get/${userinfo_id}`;
-    
-            // 3. Ambil PDF sebagai arraybuffer dari API
+            const apiURL = `${process.env.SERVER_URL}/user/rapor/output/get/${userinfo_id}`;
+
             const responsePDF = await axios.get(apiURL, {
                 responseType: "arraybuffer",
                 headers: { "Cache-Control": "no-cache" },
@@ -381,54 +379,53 @@ module.exports = {
     
             const pdfBuffer = responsePDF.data;
     
-            // 4. Konfigurasi AWS S3 untuk menyimpan file
+            //AWS S3 untuk menyimpan file
             const timestamp = new Date().getTime();
-            const uniqueFileName = `${timestamp}-sertifikat-${userinfo_id}.pdf`;
+            const uniqueFileName = `${timestamp}-rapor-${userinfo_id}.pdf`;
     
             const uploadParams = {
                 Bucket: process.env.AWS_BUCKET,
-                Key: `${process.env.PATH_AWS}/sertifikat/${uniqueFileName}`,
+                Key: `${process.env.PATH_AWS}/rapor/${uniqueFileName}`,
                 Body: pdfBuffer,
                 ACL: "public-read",
                 ContentType: "application/pdf",
             };
     
-            // 5. Upload ke AWS S3
+            //upload ke AWS S3
             const command = new PutObjectCommand(uploadParams);
             await s3Client.send(command);
     
-            // 6. Generate URL file PDF di AWS S3
-            const sertifikatPath = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
+            //generate URL file PDF di AWS S3
+            const raporPath = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
     
-            // 7. Cek jika data sudah ada, maka update, jika tidak ada maka buat baru
             const [rapor, created] = await Rapor.findOrCreate({
                 where: { userinfo_id: userinfo_id },
                 defaults: {
-                    rapor: sertifikatPath,
+                    rapor: raporPath,
                     status: 1,
                 },
             });
     
             if (!created) {
-                // Jika data sudah ada, lakukan update
+                //jika data sudah ada, lakukan update
                 await rapor.update({
-                    rapor: sertifikatPath,
-                    status: 1,
+                    rapor: raporPath,
+                    status: 0,
                 });
-                console.log("Sertifikat berhasil diperbarui di AWS:", sertifikatPath);
+                console.log("Sertifikat berhasil diperbarui di AWS:", raporPath);
     
                 return res.status(200).json({
                     message: "Sertifikat berhasil diperbarui",
-                    sertifikatPath: sertifikatPath,
+                    raporPath: raporPath,
                 });
             }
     
-            console.log("Sertifikat berhasil diunggah ke AWS:", sertifikatPath);
+            console.log("Rapor berhasil diunggah ke AWS:", raporPath);
     
             // 8. Berikan respons sukses jika data baru dibuat
             res.status(200).json({
-                message: "Sertifikat berhasil dibuat dan diunggah",
-                sertifikatPath: sertifikatPath,
+                message: "Rapor berhasil dibuat dan diunggah",
+                raporPath: raporPath,
             });
         } catch (error) {
             console.error("Error generating or uploading PDF:", error.message);
