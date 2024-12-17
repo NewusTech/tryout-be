@@ -13,8 +13,9 @@ const upload = multer({ storage: storage });
 // untuk admin generate rapor
 route.get('/user/rapor/get/:userinfo_id', raporController.getRapor); 
 route.get('/user/rapor/output/get/:userinfo_id', raporController.getOutputRapor); 
-
 route.post('/user/get/rapor/user', [mid.checkRolesAndLogout([ 'Super Admin', 'User'])], raporController.generateOutputRapor); 
+route.get('/user/pdf/rapor/:userinfo_id', [mid.checkRolesAndLogout([ 'Super Admin', 'User'])], raporController.getUserRapor);
 
+route.put('/user/rapor/update/status/:idrapor', [mid.checkRolesAndLogout(['Super Admin'])], raporController.updateStatusRapor);
 
 module.exports = route;
