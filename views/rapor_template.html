@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            
+        }
+
+        .container {
+            max-width: 800px;
+            background: #fff;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        header .logo {
+            flex-shrink: 0;
+            height: 80px;
+        }
+
+        h1 {
+            color: #4A055B;
+            font-size: 22px;
+        }
+
+        .info {
+            margin-top: 20px;
+            border-radius: 5px;
+            padding: 10px;
+            padding-left: 20px;
+            padding-right: 20px;
+            background: #f7f7f7;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .info-grid div {
+            font-size: 14px;
+        }
+
+        .scores table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 50px;
+        }
+
+        .scores thead {
+            text-align: left;
+        }
+
+        .scores th,
+        .scores td {
+            border-bottom: 1px solid #ddd;
+            padding: 8px;
+            color: #4A055B;
+
+        }
+
+        .scores th {
+            background-color: #D3C5D6;
+            color: #4A055B;
+
+        }
+
+        .scores tfoot td {
+            font-weight: bold;
+            text-align: start;
+        }
+
+        .scores .table-end {
+            text-align: end;
+        }
+
+        .signature {
+            display: flex;
+            flex-direction: column;
+            align-items: end;
+            margin-top: 40px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .signature .wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .address {
+            margin-top: 80px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nama {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .text-nama {
+            color: #4A055B;
+        }
+
+        .ttd {
+            height: 50px;
+            margin-top: 10px;
+        }
+
+        .ttd img {
+            height: 100%;
+        }
+        .footer {
+            height: 50px;
+        }
+
+        .footer img {
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Student Report</h1>
+            <img src="https://backend-tryout.newus.id/images/logo-ungu.png" alt="Master Education Logo" class="logo">
+        </header>
+        <section class="info">
+            <div class="info-grid">
+                <div class="nama"><strong class="text-nama">Nama</strong> {{name}}</div>
+                <div class="nama"><strong class="text-nama">Jenis Kelamin</strong>{{gender}}</div>
+                <div class="nama"><strong class="text-nama">Nomor Telepon</strong>{{telepon}}</div>
+                <div class="nama"><strong class="text-nama">Email</strong>{{email}}</div>
+                <div class="nama"><strong class="text-nama">Asal Sekolah</strong>{{asalInstansi}}</div>
+                <div class="nama"><strong class="text-nama">Tanggal Lahir</strong>{{tglLahir}}</div>
+                <div class="nama"><strong class="text-nama">Kota/Kabupaten</strong>{{nameKota}}</div>
+                <div class="nama"><strong class="text-nama">Provinsi</strong> {{nameProvinsi}}</div>
+                <div class="nama"><strong class="text-nama">Alamat</strong> {{alamat}}</div>
+                
+            </div>
+        </section>
+        <section class="scores">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Kategori</th>
+                        <th>TWK</th>
+                        <th>TIU</th>
+                        <th>TKP</th>
+                        <th>Total Skor</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{tableRows}} 
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Total Skor Keseluruhan</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td class="table-end">{{totalScore}}</td> 
+                    </tr>
+                    <tr>
+                        <td>Rata-rata Total Skor</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td class="table-end">{{averageScore}}</td> 
+                    </tr>
+                    <tr>
+                        <td>Status Akhir</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td class="table-end">{{statusAkhir}}</td> 
+                    </tr>
+                </tfoot>
+            </table>
+        </section>
+        <footer>
+            <div class="signature">
+                <div class="wrap">
+                    <div class="">
+                        Bandar Lampung, {{tanggalInfo}} <br>
+                        {{title}}
+                    </div>
+                    <div class="ttd">
+                        <img src="{{sign}}" alt="Master Education Logo" class="logo">
+                    </div>
+                    <div class="">
+                        {{name}}
+                    </div>
+                </div>
+            </div>
+            <div class="address">
+                <div class="footer">
+                    <img src="https://backend-tryout.newus.id/images/logo-footer.png" alt="Master Education Logo" class="logo">
+                </div>
+                <div class="">
+                    <strong>Alamat :</strong> <br> Jl. Way Semangka No.59, Pahoman, Kec. Tlk. Betung Utara, Kota Bandar
+                    Lampung,
+                    Lampung 35228
+                </div>
+            </div>
+        </footer>
+    </div>
+</body>
+
+</html>
