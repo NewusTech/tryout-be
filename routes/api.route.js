@@ -22,6 +22,7 @@ const sertifikatRoute = require('./sertifikat.route');
 const socialmediaRoute = require('./socialmedia.route');
 const whyusRoute = require('./whyus.route');
 const dashboardRoute = require('./dashboard.route');
+const raporRoute = require('./rapor.route');
 
 module.exports = function (app, urlApi) {
     app.use(urlApi, userRoute);
@@ -48,4 +49,5 @@ module.exports = function (app, urlApi) {
     app.use(urlApi, socialmediaRoute);
     app.use(urlApi, whyusRoute);
     app.use(urlApi, dashboardRoute);
+    app.use(urlApi, raporRoute);
 }
