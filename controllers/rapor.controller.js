@@ -402,7 +402,7 @@ module.exports = {
                 where: { userinfo_id: userinfo_id },
                 defaults: {
                     rapor: raporPath,
-                    status: 1,
+                    status: 0,
                 },
             });
     
