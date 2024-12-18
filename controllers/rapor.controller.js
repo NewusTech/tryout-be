@@ -454,7 +454,7 @@ module.exports = {
                 return res.status(404).json({
                     status: 404,
                     message: 'Data rapor tidak ditemukan untuk userinfo_id ini',
-                    data: {},
+                    data: null
                 });
             }
     
@@ -481,25 +481,26 @@ module.exports = {
 
     updateStatusRapor: async (req, res) => {
         try {
-            const { idrapor } = req.params;
+            const { userinfo_id } = req.params;
     
             let raporGet = await Rapor.findOne({
-                where: { id: idrapor },
+                where: {
+                    userinfo_id: userinfo_id,
+                },
                 attributes: ['id', 'rapor', 'userinfo_id', 'status', 'createdAt', 'updatedAt']
             });
     
-            //cek apakah data rapor ditemukan
+            //jika data rapor tidak ditemukan
             if (!raporGet) {
                 return res.status(404).json({
                     status: 404,
                     message: "Rapor tidak ditemukan",
-                    data: {}
+                    data: null
                 });
             }
     
-            //schema validasi untuk status
             const schema = {
-                status: { type: "number", min: 0, max: 1 }
+                status: { type: "number" }
             };
     
             let raporUpdateObj = {
@@ -517,11 +518,11 @@ module.exports = {
             }
     
             //update status rapor
-            await Rapor.update(raporUpdateObj, { where: { id: idrapor } });
+            await Rapor.update(raporUpdateObj, { where: { userinfo_id: userinfo_id } });
     
-            //get data rapor setelah diperbarui
+            //get data rapor terbaru setelah update
             let raporAfterUpdate = await Rapor.findOne({
-                where: { id: idrapor },
+                where: { userinfo_id: userinfo_id },
                 attributes: ['id', 'rapor', 'userinfo_id', 'status', 'createdAt', 'updatedAt'] 
             });
     
@@ -546,5 +547,6 @@ module.exports = {
             });
         }
     }
+    
 
 };

@@ -16,6 +16,6 @@ route.get('/user/rapor/output/get/:userinfo_id', raporController.getOutputRapor)
 route.post('/user/get/rapor/user', [mid.checkRolesAndLogout([ 'Super Admin', 'User'])], raporController.generateOutputRapor); 
 route.get('/user/pdf/rapor/:userinfo_id', [mid.checkRolesAndLogout([ 'Super Admin', 'User'])], raporController.getUserRapor);
 
-route.put('/user/rapor/update/status/:idrapor', [mid.checkRolesAndLogout(['Super Admin'])], raporController.updateStatusRapor);
+route.put('/user/rapor/update/status/:userinfo_id', [mid.checkRolesAndLogout(['Super Admin'])], raporController.updateStatusRapor);
 
 module.exports = route;
