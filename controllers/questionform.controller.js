@@ -15,14 +15,13 @@ const { generatePagination } = require("../pagination/pagination");
 const { Op, Sequelize } = require("sequelize");
 const Validator = require("fastest-validator");
 const v = new Validator();
-const ExcelJS = require('exceljs');
-const { Parser } = require('json2csv');
+const ExcelJS = require("exceljs");
+const { Parser } = require("json2csv");
 const xlsx = require("xlsx");
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
 module.exports = {
-
   // QUESTION BANK
 
   //membuat question form multi
@@ -153,13 +152,11 @@ module.exports = {
       // Rollback transaksi jika terjadi error
       await transaction.rollback();
       console.error(err);
-      res
-        .status(500)
-        .json({
-          status: 500,
-          message: "Internal server error",
-          error: err.message,
-        });
+      res.status(500).json({
+        status: 500,
+        message: "Internal server error",
+        error: err.message,
+      });
     }
   },
 
@@ -169,130 +166,130 @@ module.exports = {
     const userinfo_id = req.user.role === "User" ? req.user.userId : null;
 
     try {
-        if (!userinfo_id) {
-            return res.status(403).json({
-                code: 403,
-                message: 'Forbidden: Only users can access this resource',
-                data: null,
-            });
-        }
-
-        // Cek sesi aktif
-        const latestSession = await Question_form_num.findOne({
-            where: { userinfo_id, packagetryout_id },
-            order: [['attempt', 'DESC']],
-            attributes: ['id', 'start_time', 'end_time', 'status', 'attempt'],
+      if (!userinfo_id) {
+        return res.status(403).json({
+          code: 403,
+          message: "Forbidden: Only users can access this resource",
+          data: null,
         });
+      }
 
-        const now = new Date();
+      // Cek sesi aktif
+      const latestSession = await Question_form_num.findOne({
+        where: { userinfo_id, packagetryout_id },
+        order: [["attempt", "DESC"]],
+        attributes: ["id", "start_time", "end_time", "status", "attempt"],
+      });
 
-        if (!latestSession || now > new Date(latestSession.end_time)) {
-            return res.status(403).json({
-                code: 403,
-                message: 'No active session. Please start the tryout.',
-            });
-        }
+      const now = new Date();
 
-        // Ambil data Package_tryout
-        const data = await Package_tryout.findOne({
-            where: { id: packagetryout_id },
-            attributes: ['id', 'title', 'slug'],
+      if (!latestSession || now > new Date(latestSession.end_time)) {
+        return res.status(403).json({
+          code: 403,
+          message: "No active session. Please start the tryout.",
+        });
+      }
+
+      // Ambil data Package_tryout
+      const data = await Package_tryout.findOne({
+        where: { id: packagetryout_id },
+        attributes: ["id", "title", "slug"],
+        include: [
+          {
+            model: Bank_package,
+            attributes: ["id", "packagetryout_id", "banksoal_id"],
             include: [
-                {
-                    model: Bank_package,
-                    attributes: ['id', 'packagetryout_id', 'banksoal_id'],
-                    include: [
-                        {
-                            model: Bank_soal,
-                            attributes: ['id', 'title', 'typequestion_id'],
-                            include: [
-                                {
-                                    model: Type_question,
-                                    attributes: ['name'],
-                                },
-                                {
-                                    model: Question_form,
-                                    attributes: ['id', 'field', 'tipedata', 'datajson'],
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        });
-
-        if (!data) {
-            return res.status(404).json({
-                code: 404,
-                message: 'Package tryout not found',
-                data: null,
-            });
-        }
-
-        // Ambil jawaban pengguna untuk sesi aktif
-        const questionUser = await Question_form_input.findAll({
-            where: { questionformnum_id: latestSession.id },
-            attributes: ['data', 'questionform_id'],
-        });
-
-        let total_filled = 0;
-        let total_unfilled = 0;
-
-        // Gabungkan data soal dengan jawaban pengguna
-        const response = {
-            code: 200,
-            message: 'Success get question form with user answers',
-            data: {
-              id: data.id,
-              title: data.title,
-              slug: data.slug,
-              attempt: latestSession.attempt, // Nomor percobaan sesi
-              start_time: latestSession.start_time,
-              end_time: latestSession.end_time,
-              Question_forms: data.Bank_packages.flatMap((bankPackage) => 
-                  bankPackage.Bank_soal.Question_forms
-                      .sort((a, b) => a.id - b.id)
-                      .map((questionForm) => {
-                          const userAnswer = questionUser.find(
-                              (answer) => answer.questionform_id === questionForm.id
-                          );
-                          const isAnswered = userAnswer ? true : false;
-      
-                          if (isAnswered) {
-                              total_filled++;
-                          } else {
-                              total_unfilled++;
-                          }
-      
-                          return {
-                              id: questionForm.id,
-                              type_question_id: bankPackage.Bank_soal.typequestion_id, 
-                              type_question_name: bankPackage.Bank_soal.Type_question.name,
-                              bank_soal_id: bankPackage.Bank_soal.id,
-                              bank_soal_name: bankPackage.Bank_soal.title,
-                              field: questionForm.field,
-                              tipedata: questionForm.tipedata,
-                              datajson: questionForm.datajson,
-                              answer: userAnswer ? userAnswer.data : null,
-                          };
-                      })
-              ),
-              status: {
-                  total_filled,
-                  total_unfilled,
+              {
+                model: Bank_soal,
+                attributes: ["id", "title", "typequestion_id"],
+                include: [
+                  {
+                    model: Type_question,
+                    attributes: ["name"],
+                  },
+                  {
+                    model: Question_form,
+                    attributes: ["id", "field", "tipedata", "datajson"],
+                  },
+                ],
               },
+            ],
           },
+        ],
+      });
+
+      if (!data) {
+        return res.status(404).json({
+          code: 404,
+          message: "Package tryout not found",
+          data: null,
+        });
+      }
+
+      // Ambil jawaban pengguna untuk sesi aktif
+      const questionUser = await Question_form_input.findAll({
+        where: { questionformnum_id: latestSession.id },
+        attributes: ["data", "questionform_id"],
+      });
+
+      let total_filled = 0;
+      let total_unfilled = 0;
+
+      // Gabungkan data soal dengan jawaban pengguna
+      const response = {
+        code: 200,
+        message: "Success get question form with user answers",
+        data: {
+          id: data.id,
+          title: data.title,
+          slug: data.slug,
+          attempt: latestSession.attempt, // Nomor percobaan sesi
+          start_time: latestSession.start_time,
+          end_time: latestSession.end_time,
+          Question_forms: data.Bank_packages.flatMap((bankPackage) =>
+            bankPackage.Bank_soal.Question_forms.sort(
+              (a, b) => a.id - b.id
+            ).map((questionForm) => {
+              const userAnswer = questionUser.find(
+                (answer) => answer.questionform_id === questionForm.id
+              );
+              const isAnswered = userAnswer ? true : false;
+
+              if (isAnswered) {
+                total_filled++;
+              } else {
+                total_unfilled++;
+              }
+
+              return {
+                id: questionForm.id,
+                type_question_id: bankPackage.Bank_soal.typequestion_id,
+                type_question_name: bankPackage.Bank_soal.Type_question.name,
+                bank_soal_id: bankPackage.Bank_soal.id,
+                bank_soal_name: bankPackage.Bank_soal.title,
+                field: questionForm.field,
+                tipedata: questionForm.tipedata,
+                datajson: questionForm.datajson,
+                answer: userAnswer ? userAnswer.data : null,
+              };
+            })
+          ),
+          status: {
+            total_filled,
+            total_unfilled,
+          },
+        },
       };
 
-        return res.status(200).json(response);
+      return res.status(200).json(response);
     } catch (error) {
-        console.error(error);
+      console.error(error);
 
-        return res.status(500).json({
-            code: 500,
-            message: 'Internal server error',
-            error: error.message,
-        });
+      return res.status(500).json({
+        code: 500,
+        message: "Internal server error",
+        error: error.message,
+      });
     }
   },
 
@@ -508,119 +505,106 @@ module.exports = {
   updateMultiQuestionForm: async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
-      const schema = {
-        id: { type: "number", min: 1, optional: true },
-        field: { type: "string", min: 1 },
-        tipedata: { type: "string", min: 1, optional: true },
-        correct_answer: { type: "string", min: 1 },
-        discussion: { type: "string", min: 1, optional: true },
-        status: { type: "boolean", optional: true },
-        datajson: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              id: { type: "number" },
-              key: { type: "string" },
-            },
-            required: ["id", "key"],
-          },
-          optional: true,
-        },
-      };
-
-      // Ambil layanan_id dari URL parameter
-      // const layanan_id = req.params.layananid;
-      // if (!layanan_id) {
-      //     return res.status(400).json(response(400, 'layanan_id URL param is required'));
-      // }
-
-      // Check if the request body is an array
-      if (!Array.isArray(req.body)) {
-        return res
-          .status(400)
-          .json(response(400, "Request body must be an array of objects"));
+      // Validasi request body
+      if (!req.body || !Array.isArray(req.body.questions)) {
+        return res.status(400).json({
+          status: 400,
+          message: "Request body must contain an array of questions",
+        });
       }
 
-      // Initialize arrays for validation errors and successfully updated objects
       let errors = [];
-      let updatedForms = [];
-      let createdForms = [];
+      let updatedQuestions = [];
+      let createdQuestions = [];
 
-      // Validate and process each object in the input array
-      for (let input of req.body) {
-        // Check if the questionform exists
-        let questionformGet = await Question_form.findOne({
-          where: {
-            id: input.id,
-          },
-        });
-
-        if (!questionformGet) {
-          errors.push({ input, errors: ["question form not found"] });
+      // Loop untuk memproses setiap Question_form
+      for (let input of req.body.questions) {
+        if (!input.id) {
+          errors.push({ input, errors: ["ID is required"] });
           continue;
         }
 
-        // Update the status of the existing form to 0
+        // Cek apakah Question_form sudah ada
+        const questionForm = await Question_form.findOne({
+          where: { id: input.id },
+          transaction,
+        });
+
+        if (!questionForm) {
+          errors.push({ input, errors: ["Question form not found"] });
+          continue;
+        }
+
+        // Update status question form lama ke 0
         await Question_form.update(
-          { status: 0 }, // Update status to 0
+          { status: 0 },
           { where: { id: input.id }, transaction }
         );
 
-        // Create the new question form object for insertion
-        let questionformCreateObj = {
-          field: input.field,
-          tipedata: input.tipedata,
-          correct_answer: input.correct_answer,
-          discussion: input.discussion,
-          status: input.status !== undefined ? Boolean(input.status) : true,
-          package_tryout_id:
-            req.body.package_tryout_id !== undefined
-              ? Number(req.body.package_tryout_id)
-              : questionformGet.package_tryout_id,
-          type_question_id:
-            req.body.type_question_id !== undefined
-              ? Number(req.body.type_question_id)
-              : questionformGet.type_question_id,
-          datajson: input.datajson || null,
-        };
-
-        // Validate the new object
-        const validate = v.validate(questionformCreateObj, schema);
-        if (validate.length > 0) {
-          errors.push({ input, errors: validate });
+        // Proses correct_answer
+        let correctAnswerProcessed = null;
+        if (Array.isArray(input.correct_answer)) {
+          correctAnswerProcessed = input.correct_answer.map((answer) => ({
+            id: answer.id,
+            key: answer.key,
+            point: answer.point || 0, // Default point = 0 jika tidak ada
+          }));
+        } else if (typeof input.correct_answer === "number") {
+          correctAnswerProcessed = input.correct_answer;
+        } else {
+          errors.push({
+            input,
+            errors: ["Invalid format for correct_answer."],
+          });
           continue;
         }
 
-        // Create new question form in the database
-        let questionformCreate = await Question_form.create(
-          questionformCreateObj,
+        // Buat objek untuk membuat question form baru
+        const questionFormCreateObj = {
+          field: input.field,
+          tipedata: input.tipedata,
+          status: input.status !== undefined ? Boolean(input.status) : true,
+          correct_answer: correctAnswerProcessed,
+          discussion: input.discussion,
+          datajson: input.datajson || null,
+          banksoal_id: questionForm.banksoal_id, // Mengaitkan dengan bank soal yang sama
+        };
+
+        // Buat Question_form baru
+        const questionFormCreate = await Question_form.create(
+          questionFormCreateObj,
           { transaction }
         );
-        createdForms.push(questionformCreate);
+        createdQuestions.push(questionFormCreate);
       }
 
-      // If there are validation errors, respond with them
+      // Jika ada error pada validasi, rollback transaksi
       if (errors.length > 0) {
         await transaction.rollback();
-        return res.status(400).json(response(400, "Validation failed", errors));
+        return res
+          .status(400)
+          .json({ status: 400, message: "Validation failed", errors });
       }
 
-      // Commit transaction if everything is fine
+      // Commit transaksi jika semuanya berhasil
       await transaction.commit();
-      return res
-        .status(200)
-        .json(
-          response(
-            200,
-            "Successfully updated and created new question form(s)",
-            { createdForms }
-          )
-        );
+
+      return res.status(200).json({
+        status: 200,
+        message: "Successfully updated and created new question forms",
+        data: {
+          updatedQuestions,
+          createdQuestions,
+        },
+      });
     } catch (err) {
       await transaction.rollback();
-      console.log(err);
-      return res.status(500).json(response(500, "Internal server error", err));
+      console.error("Error updating question forms:", err);
+      return res.status(500).json({
+        status: 500,
+        message: "Internal server error",
+        error: err.message,
+      });
     }
   },
 
@@ -668,132 +652,130 @@ module.exports = {
   //mendapatkan data bank soal
   getBankSoal: async (req, res) => {
     try {
-        const search = req.query.search ?? null;
-        const banksoal_id = req.query.banksoal_id ?? null;
-        const typequestion_id = req.query.typequestion_id ?? null;
-        const month = parseInt(req.query.month) || null;
-        const year = parseInt(req.query.year) || null;
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const offset = (page - 1) * limit;
-    
-        const whereCondition = {};
-    
-        if (banksoal_id) {
-            whereCondition.id = banksoal_id;
-        }
-    
-        if (search) {
-            whereCondition[Op.or] = [
-                { title: { [Op.like]: `%${search}%` } },
-            ];
-        }
-    
-        //filter by typequestion_id
-        if (typequestion_id) {
-            whereCondition.typequestion_id = typequestion_id;
-        }
-    
-        //filter by month and year
-        if (month && year) {
-            whereCondition.createdAt = {
-                [Op.and]: [
-                    Sequelize.where(
-                        Sequelize.fn("MONTH", Sequelize.col("Bank_soal.createdAt")),
-                        month
-                    ),
-                    Sequelize.where(
-                        Sequelize.fn("YEAR", Sequelize.col("Bank_soal.createdAt")),
-                        year
-                    ),
-                ],
-            };
-        } else if (year) {
-            whereCondition.createdAt = Sequelize.where(
-                Sequelize.fn("YEAR", Sequelize.col("Bank_soal.createdAt")),
-                year
-            );
-        }
-    
-        //get data bank soal
-        const [packageGets, totalCount] = await Promise.all([
-            Bank_soal.findAll({
-                where: whereCondition,
-                include: [
-                    {
-                        model: Type_question,
-                        attributes: ["id", "name"],
-                        where: typequestion_id ? { id: typequestion_id } : undefined,
-                    },
-                ],
-                limit: limit,
-                offset: offset,
-                order: [["id", "ASC"]],
-            }),
-            Bank_soal.count({
-                where: whereCondition,
-                include: [
-                    {
-                        model: Type_question,
-                        where: typequestion_id ? { id: typequestion_id } : undefined,
-                    },
-                ],
-            }),
-        ]);
-    
-        //get total soal berdasarkan banksoal_id
-        const banksoalid = packageGets.map((pkg) => pkg.id);
-    
-        const questionCounts = await Question_form.findAll({
-            attributes: [
-                "banksoal_id",
-                [Sequelize.fn("COUNT", Sequelize.col("id")), "total_soal"],
-            ],
-            where: {
-                banksoal_id: {
-                    [Op.in]: banksoalid,
-                },
-            },
-            group: ["banksoal_id"],
-        });
-    
-        //map jumlah soal berdasarkan banksoal_id
-        const questionCountMap = questionCounts.reduce((map, item) => {
-            map[item.banksoal_id] = parseInt(item.dataValues.total_soal, 10);
-            return map;
-        }, {});
-    
-        const modifiedPackageGets = packageGets.map((package) => {
-            const { Type_question, ...otherData } = package.dataValues;
-            return {
-                ...otherData,
-                Type_question_name: Type_question?.name,
-                Total_question: questionCountMap[package.id] || 0,
-            };
-        });
-    
-        const pagination = generatePagination(
-            totalCount,
-            page,
-            limit,
-            "/api/user/bank/question/get"
+      const search = req.query.search ?? null;
+      const banksoal_id = req.query.banksoal_id ?? null;
+      const typequestion_id = req.query.typequestion_id ?? null;
+      const month = parseInt(req.query.month) || null;
+      const year = parseInt(req.query.year) || null;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const offset = (page - 1) * limit;
+
+      const whereCondition = {};
+
+      if (banksoal_id) {
+        whereCondition.id = banksoal_id;
+      }
+
+      if (search) {
+        whereCondition[Op.or] = [{ title: { [Op.like]: `%${search}%` } }];
+      }
+
+      //filter by typequestion_id
+      if (typequestion_id) {
+        whereCondition.typequestion_id = typequestion_id;
+      }
+
+      //filter by month and year
+      if (month && year) {
+        whereCondition.createdAt = {
+          [Op.and]: [
+            Sequelize.where(
+              Sequelize.fn("MONTH", Sequelize.col("Bank_soal.createdAt")),
+              month
+            ),
+            Sequelize.where(
+              Sequelize.fn("YEAR", Sequelize.col("Bank_soal.createdAt")),
+              year
+            ),
+          ],
+        };
+      } else if (year) {
+        whereCondition.createdAt = Sequelize.where(
+          Sequelize.fn("YEAR", Sequelize.col("Bank_soal.createdAt")),
+          year
         );
-    
-        res.status(200).json({
-            status: 200, 
-            message: "success get bank soal",
-            data: modifiedPackageGets,
-            pagination: pagination,
-        });
+      }
+
+      //get data bank soal
+      const [packageGets, totalCount] = await Promise.all([
+        Bank_soal.findAll({
+          where: whereCondition,
+          include: [
+            {
+              model: Type_question,
+              attributes: ["id", "name"],
+              where: typequestion_id ? { id: typequestion_id } : undefined,
+            },
+          ],
+          limit: limit,
+          offset: offset,
+          order: [["id", "ASC"]],
+        }),
+        Bank_soal.count({
+          where: whereCondition,
+          include: [
+            {
+              model: Type_question,
+              where: typequestion_id ? { id: typequestion_id } : undefined,
+            },
+          ],
+        }),
+      ]);
+
+      //get total soal berdasarkan banksoal_id
+      const banksoalid = packageGets.map((pkg) => pkg.id);
+
+      const questionCounts = await Question_form.findAll({
+        attributes: [
+          "banksoal_id",
+          [Sequelize.fn("COUNT", Sequelize.col("id")), "total_soal"],
+        ],
+        where: {
+          banksoal_id: {
+            [Op.in]: banksoalid,
+          },
+        },
+        group: ["banksoal_id"],
+      });
+
+      //map jumlah soal berdasarkan banksoal_id
+      const questionCountMap = questionCounts.reduce((map, item) => {
+        map[item.banksoal_id] = parseInt(item.dataValues.total_soal, 10);
+        return map;
+      }, {});
+
+      const modifiedPackageGets = packageGets.map((package) => {
+        const { Type_question, ...otherData } = package.dataValues;
+        return {
+          ...otherData,
+          Type_question_name: Type_question?.name,
+          Total_question: questionCountMap[package.id] || 0,
+        };
+      });
+
+      const pagination = generatePagination(
+        totalCount,
+        page,
+        limit,
+        "/api/user/bank/question/get"
+      );
+
+      res.status(200).json({
+        status: 200,
+        message: "success get bank soal",
+        data: modifiedPackageGets,
+        pagination: pagination,
+      });
     } catch (err) {
-        res.status(500).json({
-            status: 500,
-            message: "internal server error",
-            error: err.message,
-        });
-        console.log(err);
-        logger.error(`Error : ${err}`);
-        logger.error(`Error message: ${err.message}`);
+      res.status(500).json({
+        status: 500,
+        message: "internal server error",
+        error: err.message,
+      });
+      console.log(err);
+      logger.error(`Error : ${err}`);
+      logger.error(`Error message: ${err.message}`);
     }
   },
 
@@ -807,18 +789,18 @@ module.exports = {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
       const offset = (page - 1) * limit;
-  
+
       if (!typequestion_id) {
         return res.status(400).json({
           status: 400,
           message: "type_question_id is required",
         });
       }
-  
+
       const whereCondition = {
         typequestion_id: typequestion_id,
       };
-  
+
       if (search) {
         whereCondition[Op.or] = [
           {
@@ -826,7 +808,7 @@ module.exports = {
           },
         ];
       }
-  
+
       // Filter berdasarkan bulan dan tahun (berdasarkan createdAt)
       if (month && year) {
         whereCondition.createdAt = {
@@ -847,7 +829,7 @@ module.exports = {
           year
         );
       }
-  
+
       const [bankSoals, totalCount] = await Promise.all([
         Bank_soal.findAll({
           where: whereCondition,
@@ -865,7 +847,7 @@ module.exports = {
           where: whereCondition,
         }),
       ]);
-  
+
       const modifiedBankSoals = bankSoals.map((bankSoal) => {
         const { Type_question, ...otherData } = bankSoal.dataValues;
         return {
@@ -873,14 +855,14 @@ module.exports = {
           Type_question_name: Type_question?.name,
         };
       });
-  
+
       const pagination = generatePagination(
         totalCount,
         page,
         limit,
         "/api/user/bank/question/get/:typequestion_id"
       );
-  
+
       res.status(200).json({
         status: 200,
         message: "success get bank soal by type question",
@@ -904,349 +886,261 @@ module.exports = {
     const { banksoal_id } = req.params;
 
     try {
-        // Ambil data Bank_soal
-        const data = await Bank_soal.findOne({
-            where: { id: banksoal_id },
-            attributes: ['id', 'title', 'typequestion_id'],
-            include: [
-                {
-                    model: Type_question,
-                    attributes: ['name'],
-                },
-                {
-                    model: Question_form,
-                    attributes: ['id', 'field', 'tipedata', 'datajson', 'discussion', 'correct_answer'],
-                },
+      // Ambil data Bank_soal
+      const data = await Bank_soal.findOne({
+        where: { id: banksoal_id },
+        attributes: ["id", "title", "typequestion_id"],
+        include: [
+          {
+            model: Type_question,
+            attributes: ["name"],
+          },
+          {
+            model: Question_form,
+            attributes: [
+              "id",
+              "field",
+              "tipedata",
+              "datajson",
+              "discussion",
+              "correct_answer",
             ],
-        });
+          },
+        ],
+      });
 
-        // Jika bank soal tidak ditemukan
-        if (!data) {
-            return res.status(404).json({
-                code: 404,
-                message: 'Bank soal not found',
-                data: null,
-            });
-        }
-
-        // Gabungkan data soal
-        const response = {
-            code: 200,
-            message: 'Success get question form by banksoal_id',
-            data: {
-                id: data.id,
-                title: data.title,
-                typequestion_id: data.typequestion_id,
-                Type_question: data.Type_question,
-                Question_forms: data.Question_forms.map((questionForm) => {
-                    return {
-                        id: questionForm.id,
-                        field: questionForm.field,
-                        tipedata: questionForm.tipedata,
-                        datajson: questionForm.datajson,
-                        correct_answer: questionForm.correct_answer,
-                        discussion: questionForm.discussion,
-                    };
-                }),
-            },
-        };
-        
-        return res.status(200).json(response);
-      } catch (error) {
-        console.error(error);
-        return res.status(500).json({
-          code: 500,
-          message: 'Internal server error',
-          error: error.message,
+      // Jika bank soal tidak ditemukan
+      if (!data) {
+        return res.status(404).json({
+          code: 404,
+          message: "Bank soal not found",
+          data: null,
         });
       }
+
+      // Gabungkan data soal
+      const response = {
+        code: 200,
+        message: "Success get question form by banksoal_id",
+        data: {
+          id: data.id,
+          title: data.title,
+          typequestion_id: data.typequestion_id,
+          Type_question: data.Type_question,
+          Question_forms: data.Question_forms.map((questionForm) => {
+            return {
+              id: questionForm.id,
+              field: questionForm.field,
+              tipedata: questionForm.tipedata,
+              datajson: questionForm.datajson,
+              correct_answer: questionForm.correct_answer,
+              discussion: questionForm.discussion,
+            };
+          }),
+        },
+      };
+
+      return res.status(200).json(response);
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+        code: 500,
+        message: "Internal server error",
+        error: error.message,
+      });
+    }
   },
 
   //import data bank soal ke sistem
   importBankSoal: async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
-        if (!req.file) {
-            return res.status(400).json({
-                status: 400,
-                message: "No file uploaded. Please upload an Excel file.",
-            });
-        }
+      if (!req.file) {
+        return res.status(400).json({
+          status: 400,
+          message: "No file uploaded. Please upload an Excel file.",
+        });
+      }
 
-        // Membaca file Excel
-        const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
-        const sheetName = workbook.SheetNames[0]; // Ambil sheet pertama
-        const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+      // Membaca file Excel
+      const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+      const sheetName = workbook.SheetNames[0]; // Ambil sheet pertama
+      const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-        if (!sheetData || sheetData.length === 0) {
-            return res.status(400).json({
-                status: 400,
-                message: "Excel file is empty or invalid format.",
-            });
-        }
+      if (!sheetData || sheetData.length === 0) {
+        return res.status(400).json({
+          status: 400,
+          message: "Excel file is empty or invalid format.",
+        });
+      }
 
-        const bankSoalTitle = sheetData[0]?.banksoal_title;
-        const typeQuestionId = sheetData[0]?.typequestion_id;
+      const bankSoalTitle = sheetData[0]?.banksoal_title;
+      const typeQuestionId = sheetData[0]?.typequestion_id;
 
-        if (!bankSoalTitle || !typeQuestionId) {
-            return res.status(400).json({
-                status: 400,
-                message: "Missing bank soal information in the Excel file.",
-            });
-        }
+      if (!bankSoalTitle || !typeQuestionId) {
+        return res.status(400).json({
+          status: 400,
+          message: "Missing bank soal information in the Excel file.",
+        });
+      }
 
-        // Buat Bank_soal
-        const createdBankSoal = await Bank_soal.create(
+      // Buat Bank_soal
+      const createdBankSoal = await Bank_soal.create(
+        {
+          title: bankSoalTitle,
+          typequestion_id: typeQuestionId,
+        },
+        { transaction }
+      );
+
+      let createdQuestions = [];
+      let errors = [];
+
+      // Proses setiap baris sebagai Question_form
+      for (let row of sheetData) {
+        try {
+          // Parsing correct_answer dan datajson
+          const correctAnswer = JSON.parse(row.correct_answer || "[]");
+          const datajson = JSON.parse(row.datajson || "[]");
+
+          // Buat Question_form
+          const questionForm = await Question_form.create(
             {
-                title: bankSoalTitle,
-                typequestion_id: typeQuestionId,
+              field: row.field,
+              tipedata: row.tipedata,
+              status: row.status !== undefined ? Boolean(row.status) : true,
+              correct_answer: correctAnswer,
+              discussion: row.discussion,
+              datajson: datajson,
+              banksoal_id: createdBankSoal.id, // Hubungkan dengan Bank_soal
             },
             { transaction }
-        );
+          );
 
-        let createdQuestions = [];
-        let errors = [];
-
-        // Proses setiap baris sebagai Question_form
-        for (let row of sheetData) {
-            try {
-                // Parsing correct_answer dan datajson
-                const correctAnswer = JSON.parse(row.correct_answer || "[]");
-                const datajson = JSON.parse(row.datajson || "[]");
-
-                // Buat Question_form
-                const questionForm = await Question_form.create(
-                    {
-                        field: row.field,
-                        tipedata: row.tipedata,
-                        status: row.status !== undefined ? Boolean(row.status) : true,
-                        correct_answer: correctAnswer,
-                        discussion: row.discussion,
-                        datajson: datajson,
-                        banksoal_id: createdBankSoal.id, // Hubungkan dengan Bank_soal
-                    },
-                    { transaction }
-                );
-
-                createdQuestions.push(questionForm);
-            } catch (error) {
-                errors.push({
-                    row,
-                    error: error.message,
-                });
-            }
+          createdQuestions.push(questionForm);
+        } catch (error) {
+          errors.push({
+            row,
+            error: error.message,
+          });
         }
-        
-        if (errors.length > 0) {
-            await transaction.rollback();
-            return res.status(400).json({
-                status: 400,
-                message: "Some rows failed to process",
-                errors,
-            });
-        }
+      }
 
-        // Commit transaksi jika semua berhasil
-        await transaction.commit();
-
-        return res.status(201).json({
-            status: 201,
-            message: "Successfully imported bank soal and question forms",
-            data: {
-                bankSoal: createdBankSoal,
-                questionForms: createdQuestions,
-            },
-        });
-    } catch (err) {
-        // Rollback transaksi jika terjadi error
+      if (errors.length > 0) {
         await transaction.rollback();
-        console.error(err);
-        return res.status(500).json({
-            status: 500,
-            message: "Internal server error",
-            error: err.message,
+        return res.status(400).json({
+          status: 400,
+          message: "Some rows failed to process",
+          errors,
         });
+      }
+
+      // Commit transaksi jika semua berhasil
+      await transaction.commit();
+
+      return res.status(201).json({
+        status: 201,
+        message: "Successfully imported bank soal and question forms",
+        data: {
+          bankSoal: createdBankSoal,
+          questionForms: createdQuestions,
+        },
+      });
+    } catch (err) {
+      // Rollback transaksi jika terjadi error
+      await transaction.rollback();
+      console.error(err);
+      return res.status(500).json({
+        status: 500,
+        message: "Internal server error",
+        error: err.message,
+      });
     }
   },
 
-
-exportBankSoal: async (req, res) => {
+  //export data bank soal
+  exportBankSoal: async (req, res) => {
     try {
-        // Get ID dari request body
-        const { id } = req.body;
+      // Get ID dari request body
+      const { id } = req.body;
 
-        if (!id || !Array.isArray(id) || id.length === 0) {
-            return res.status(400).json({
-                status: 400,
-                message: "ID tidak valid atau kosong",
-            });
-        }
-
-        // Ambil data bank soal beserta detail soal
-        const bankSoalData = await Bank_soal.findAll({
-            where: { id: { [Op.in]: id } },
-            include: [
-                {
-                    model: Question_form,
-                    attributes: ['id', 'field', 'correct_answer', 'discussion'],
-                },
-                {
-                    model: Type_question,
-                    attributes: ['name'],
-                },
-            ],
+      if (!id || !Array.isArray(id) || id.length === 0) {
+        return res.status(400).json({
+          status: 400,
+          message: "ID tidak valid atau kosong",
         });
+      }
 
-        if (!bankSoalData.length) {
-            return res.status(404).json({
-                status: 404,
-                message: "Tidak ada data bank soal ditemukan untuk ID yang diberikan.",
-            });
-        }
+      // Ambil data bank soal beserta detail soal
+      const bankSoalData = await Bank_soal.findAll({
+        where: { id: { [Op.in]: id } },
+        include: [
+          {
+            model: Question_form,
+            attributes: ["id", "field", "correct_answer", "discussion"],
+          },
+          {
+            model: Type_question,
+            attributes: ["name"],
+          },
+        ],
+      });
 
-        // Format data untuk CSV
-        const formattedData = [];
-        bankSoalData.forEach((bankSoal) => {
-            bankSoal.Question_forms.forEach((question, index) => {
-                formattedData.push({
-                    ID_Bank_Soal: bankSoal.id,
-                    Nama_Bank_Soal: bankSoal.title,
-                    Kategori_Soal: bankSoal.Type_question?.name || 'Tidak Ada',
-                    No_Soal: index + 1,
-                    Pertanyaan: question.field,
-                    Jawaban_Benar: question.correct_answer,
-                    Pembahasan: question.discussion || '-',
-                });
-            });
+      if (!bankSoalData.length) {
+        return res.status(404).json({
+          status: 404,
+          message:
+            "Tidak ada data bank soal ditemukan untuk ID yang diberikan.",
         });
+      }
 
-        // Definisikan kolom CSV
-        const fields = [
-            'ID_Bank_Soal',
-            'Nama_Bank_Soal',
-            'Kategori_Soal',
-            'No_Soal',
-            'Pertanyaan',
-            'Jawaban_Benar',
-            'Pembahasan',
-        ];
-        const json2csvParser = new Parser({ fields });
-        const csv = json2csvParser.parse(formattedData);
+      // Format data untuk CSV
+      const formattedData = [];
+      bankSoalData.forEach((bankSoal) => {
+        bankSoal.Question_forms.forEach((question, index) => {
+          formattedData.push({
+            ID_Bank_Soal: bankSoal.id,
+            Nama_Bank_Soal: bankSoal.title,
+            Kategori_Soal: bankSoal.Type_question?.name || "Tidak Ada",
+            No_Soal: index + 1,
+            Pertanyaan: question.field,
+            Jawaban_Benar: question.correct_answer,
+            Pembahasan: question.discussion || "-",
+          });
+        });
+      });
 
-        // Header agar file langsung terdownload
-        const filename = `export-banksoal-${Date.now()}.csv`;
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      // Definisikan kolom CSV
+      const fields = [
+        "ID_Bank_Soal",
+        "Nama_Bank_Soal",
+        "Kategori_Soal",
+        "No_Soal",
+        "Pertanyaan",
+        "Jawaban_Benar",
+        "Pembahasan",
+      ];
+      const json2csvParser = new Parser({ fields });
+      const csv = json2csvParser.parse(formattedData);
 
-        // Kirim CSV langsung ke client
-        res.status(200).send(csv);
+      // Header agar file langsung terdownload
+      const filename = `export-banksoal-${Date.now()}.csv`;
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${filename}"`
+      );
+
+      // Kirim CSV langsung ke client
+      res.status(200).send(csv);
     } catch (error) {
-        console.error("Error ekspor bank soal:", error);
-        res.status(500).json({
-            status: 500,
-            message: "Internal server error",
-            error: error.message,
-        });
+      console.error("Error ekspor bank soal:", error);
+      res.status(500).json({
+        status: 500,
+        message: "Internal server error",
+        error: error.message,
+      });
     }
-},
-
-
-
-// exportBankSoal: async (req, res) => {
-//     try {
-//         // Get ID dari request body
-//         const { id } = req.body;
-
-//         if (!id || !Array.isArray(id) || id.length === 0) {
-//             return res.status(400).json({
-//                 status: 400,
-//                 message: "ID tidak valid atau kosong",
-//             });
-//         }
-
-//         // Ambil data bank soal beserta detail soal
-//         const bankSoalData = await Bank_soal.findAll({
-//             where: { id: { [Op.in]: id } },
-//             include: [
-//                 {
-//                     model: Question_form,
-//                     attributes: ['id', 'field', 'correct_answer', 'discussion'],
-//                 },
-//                 {
-//                     model: Type_question,
-//                     attributes: ['name'],
-//                 },
-//             ],
-//         });
-
-//         if (!bankSoalData.length) {
-//             return res.status(404).json({
-//                 status: 404,
-//                 message: "Tidak ada data bank soal ditemukan untuk ID yang diberikan.",
-//             });
-//         }
-
-//         // Format data untuk ekspor
-//         const formattedData = [];
-//         bankSoalData.forEach((bankSoal) => {
-//             bankSoal.Question_forms.forEach((question, index) => {
-//                 formattedData.push({
-//                     ID_Bank_Soal: bankSoal.id,
-//                     Nama_Bank_Soal: bankSoal.title,
-//                     Kategori_Soal: bankSoal.Type_question?.name || 'Tidak Ada',
-//                     No_Soal: index + 1,
-//                     Pertanyaan: question.field,
-//                     Jawaban_Benar: question.correct_answer,
-//                     Pembahasan: question.discussion || '-',
-//                 });
-//             });
-//         });
-
-//         // Definisikan kolom untuk CSV
-//         const fields = [
-//             'ID_Bank_Soal',
-//             'Nama_Bank_Soal',
-//             'Kategori_Soal',
-//             'No_Soal',
-//             'Pertanyaan',
-//             'Jawaban_Benar',
-//             'Pembahasan'
-//         ];
-//         const json2csvParser = new Parser({ fields });
-//         const csv = json2csvParser.parse(formattedData);
-
-//         // Buat file CSV
-//         const filename = `export-banksoal-${Date.now()}.csv`;
-//         const exportDir = path.join(__dirname, '../exports');
-//         const filePath = path.join(exportDir, filename);
-
-//         // Pastikan folder exports ada
-//         if (!fs.existsSync(exportDir)) {
-//             fs.mkdirSync(exportDir, { recursive: true });
-//         }
-
-//         fs.writeFileSync(filePath, csv);
-
-//         // Kirim file ke client
-//         res.download(filePath, filename, (err) => {
-//             if (err) {
-//                 console.error('Error saat mengirim file:', err);
-//                 return res.status(500).json({
-//                     status: 500,
-//                     message: "Gagal mengirim file.",
-//                 });
-//             }
-//             // Hapus file setelah dikirim
-//             fs.unlinkSync(filePath);
-//         });
-//     } catch (error) {
-//         console.error("Error ekspor bank soal:", error);
-//         res.status(500).json({
-//             status: 500,
-//             message: "Internal server error",
-//             error: error.message,
-//         });
-//     }
-// },
+  },
 
 };
