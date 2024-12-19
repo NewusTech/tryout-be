@@ -15,6 +15,7 @@ module.exports = (sequelize, DataTypes) => {
     packagetryout_id: DataTypes.INTEGER,
     tanggal: DataTypes.DATEONLY,
     waktu: DataTypes.TIME,
+    isEvent: DataTypes.INTEGER,
     deletedAt: DataTypes.DATE,
   }, {
     sequelize,
