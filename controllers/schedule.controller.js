@@ -22,23 +22,23 @@ const moment = require("moment-timezone");
 const { generatePagination } = require("../pagination/pagination");
 
 module.exports = {
+
   //input schedule user
   createSchedule: async (req, res) => {
     try {
       const { title, packagetryout_id, tanggal, waktu, isEvent } = req.body;
 
-      // Validasi input
       if (!title || !packagetryout_id || !tanggal || !waktu) {
         return res.status(400).json(response(400, "All fields are required"));
       }
 
-      // Cek apakah paket_tryout_id ada
+      //cek apakah paket_tryout_id ada
       const paketTryout = await Package_tryout.findByPk(packagetryout_id);
       if (!paketTryout) {
         return res.status(404).json(response(404, "Paket tryout not found"));
       }
 
-      // Buat schedule tryout baru
+      //create schedule tryout baru
       const schedule = await Schedule.create({
         title,
         packagetryout_id,
@@ -46,6 +46,12 @@ module.exports = {
         waktu,
         isEvent: isEvent ?? 1,
       });
+
+      //update isEvent di tabel Package_tryout
+      await paketTryout.update({
+        isEvent: 1
+      });
+
       return res
         .status(201)
         .json(response(201, "Schedule created successfully", schedule));
