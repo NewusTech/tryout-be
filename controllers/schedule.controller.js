@@ -491,30 +491,73 @@ module.exports = {
               };
             }
 
+            // Bank_soal.Question_forms.forEach((questionForm) => {
+            //   const correctAnswer = questionForm.correct_answer;
+            //   const userAnswer = userAnswers[questionForm.id];
+            //   let isCorrect = false;
+            //   let points = 0;
+
+            //   if (
+            //     typeof correctAnswer === "string" ||
+            //     typeof correctAnswer === "number"
+            //   ) {
+            //     isCorrect = String(correctAnswer) === String(userAnswer);
+            //     points = isCorrect ? 5 : 0;
+            //   } else if (Array.isArray(correctAnswer)) {
+            //     const correctObject = correctAnswer.find(
+            //       (item) => String(item.id) === String(userAnswer)
+            //     );
+            //     if (correctObject) {
+            //       isCorrect = true;
+            //       points = correctObject.point || 0;
+            //     }
+            //   }
+
+            //   questionSummary[typeId].totalQuestions += 1;
+
+            //   if (userAnswer !== null && userAnswer !== undefined) {
+            //     if (isCorrect) {
+            //       questionSummary[typeId].totalCorrect += 1;
+            //       questionSummary[typeId].totalScore += points;
+            //     } else {
+            //       questionSummary[typeId].totalIncorrect += 1;
+            //     }
+            //   } else {
+            //     questionSummary[typeId].totalUnanswered += 1;
+            //   }
+            // });
             Bank_soal.Question_forms.forEach((questionForm) => {
               const correctAnswer = questionForm.correct_answer;
               const userAnswer = userAnswers[questionForm.id];
               let isCorrect = false;
               let points = 0;
-
+            
+              // Penanganan jika jawaban benar adalah string atau number
               if (
                 typeof correctAnswer === "string" ||
                 typeof correctAnswer === "number"
               ) {
                 isCorrect = String(correctAnswer) === String(userAnswer);
-                points = isCorrect ? 5 : 0;
-              } else if (Array.isArray(correctAnswer)) {
+                points = isCorrect ? 5 : 0;  // Skor default jika benar
+              } 
+              // Penanganan jika jawaban benar adalah array
+              else if (Array.isArray(correctAnswer)) {
                 const correctObject = correctAnswer.find(
-                  (item) => String(item.id) === String(userAnswer)
+                  (item) => String(item.id) === String(userAnswer)  // Cek berdasarkan id jawaban
                 );
                 if (correctObject) {
                   isCorrect = true;
-                  points = correctObject.point || 0;
+                  points = correctObject.point || 5;  // Ambil skor dari database, default 5
                 }
+              } 
+              // Jika jawaban benar kosong atau tidak tersedia
+              else {
+                console.log(`Correct answer not found for questionForm ID: ${questionForm.id}`);
               }
-
+            
+              // Update statistik jumlah soal dan jawaban
               questionSummary[typeId].totalQuestions += 1;
-
+            
               if (userAnswer !== null && userAnswer !== undefined) {
                 if (isCorrect) {
                   questionSummary[typeId].totalCorrect += 1;
@@ -525,7 +568,7 @@ module.exports = {
               } else {
                 questionSummary[typeId].totalUnanswered += 1;
               }
-            });
+            });            
           });
 
           return {
