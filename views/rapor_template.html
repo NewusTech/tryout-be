@@ -134,6 +134,20 @@
         .footer img {
             height: 100%;
         }
+
+        .note {
+            background-color: #E4DDE6;
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        .note-title {
+            color: #4A055B;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 
@@ -173,33 +187,39 @@
                     {{tableRows}} 
                 </tbody>
                 <tfoot>
-                    <tr>
+                    <!-- <tr>
                         <td>Total Skor Keseluruhan</td>
                         <td></td>
                         <td></td>
                         <td></td>
                         <td></td>
                         <td class="table-end">{{totalScore}}</td> 
-                    </tr>
-                    <tr>
+                    </tr> -->
+                    <!-- <tr>
                         <td>Rata-rata Total Skor</td>
                         <td></td>
                         <td></td>
                         <td></td>
                         <td></td>
                         <td class="table-end">{{averageScore}}</td> 
-                    </tr>
-                    <tr>
+                    </tr> -->
+                    <!-- <tr>
                         <td>Status Akhir</td>
                         <td></td>
                         <td></td>
                         <td></td>
                         <td></td>
                         <td class="table-end">{{statusAkhir}}</td> 
-                    </tr>
+                    </tr> -->
                 </tfoot>
             </table>
         </section>
+        <div class="note">
+            <div class="note-title">Catatan :</div>
+            <div class="">
+                {{note}}
+            </div>
+        </div>
         <footer>
             <div class="signature">
                 <div class="wrap">
