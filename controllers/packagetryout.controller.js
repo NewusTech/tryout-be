@@ -114,153 +114,159 @@ module.exports = {
   //get semua data paket tryout
   getPackageTryout: async (req, res) => {
     try {
-        const search = req.query.search ?? null;
-        const packagetryout_id = req.query.packagetryout_id ?? null;
-        const showDeleted = req.query.showDeleted === "true" ?? false;
-        const month = parseInt(req.query.month) || null;
-        const year = parseInt(req.query.year) || null;
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const offset = (page - 1) * limit;
+      const search = req.query.search ?? null;
+      const packagetryout_id = req.query.packagetryout_id ?? null;
+      const showDeleted = req.query.showDeleted === "true";
+      const month = parseInt(req.query.month) || null;
+      const year = parseInt(req.query.year) || null;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const offset = (page - 1) * limit;
 
-        // Validasi user
-        const isSuperAdmin = req.user.role === "Super Admin";
-        const userinfo_id = req.user.role === "User" ? req.user.userId : null;
+      const isSuperAdmin = req.user.role === "Super Admin";
+      const userinfo_id = req.user.role === "User" ? req.user.userId : null;
 
-        if (!isSuperAdmin && !userinfo_id) {
-            return res.status(403).json({
-                code: 403,
-                message: "Forbidden: Only authenticated users can access this resource",
-                data: null,
-            });
+      if (!isSuperAdmin && !userinfo_id) {
+        return res.status(403).json({
+          code: 403,
+          message:
+            "Forbidden: Only authenticated users can access this resource",
+          data: null,
+        });
+      }
+
+      const whereCondition = {};
+
+      //jika user biasa, tambahkan filter typepackage dan isEvent
+      if (!isSuperAdmin) {
+        // Ambil informasi role dan type_package pengguna yang sedang login
+        const user = await User_info.findOne({
+          where: { id: userinfo_id },
+          include: [
+            {
+              model: User,
+              attributes: ["id", "typepackage_id", "role_id"],
+              include: [
+                {
+                  model: Role,
+                  attributes: ["name"],
+                },
+                {
+                  model: Type_package,
+                  attributes: ["id", "name"],
+                },
+              ],
+            },
+          ],
+        });
+
+        if (!user) {
+          return res.status(404).json({
+            status: 404,
+            message: "User not found",
+          });
         }
 
-        const whereCondition = {};
+        const typePackageId = user.User.typepackage_id;
+        whereCondition.typepackage_id = typePackageId;
 
-        // Jika superadmin, tidak perlu memfilter berdasarkan type_package
-        if (!isSuperAdmin) {
-            // Ambil informasi role dan type_package pengguna yang sedang login
-            const user = await User_info.findOne({
-                where: { id: userinfo_id },
-                include: [
-                    {
-                        model: User,
-                        attributes: ["id", "typepackage_id", "role_id"],
-                        include: [
-                            {
-                                model: Role,
-                                attributes: ["name"],
-                            },
-                            {
-                                model: Type_package,
-                                attributes: ["id", "name"],
-                            },
-                        ],
-                    },
-                ],
-            });
-
-            if (!user) {
-                return res.status(404).json({
-                    status: 404,
-                    message: "User not found",
-                });
-            }
-
-            // Tambahkan filter berdasarkan type_package untuk user biasa
-            const typePackageId = user.User.typepackage_id;
-            whereCondition.typepackage_id = typePackageId;
-          }
-          
-          if (packagetryout_id) {
-            whereCondition.id = packagetryout_id;
-          }
-          
-          if (search) {
-            whereCondition[Op.or] = [
-              {
-                title: { [Op.like]: `%${search}%` },
-              },
-            ];
-          }
-          
-          if (showDeleted) {
-            whereCondition.deletedAt = { [Op.not]: null };
-          } else {
-            whereCondition.deletedAt = null;
-          }
-          
-          // Filter berdasarkan bulan dan tahun (berdasarkan createdAt)
-          if (month && year) {
-            whereCondition.createdAt = {
-                [Op.and]: [
-                    Sequelize.where(
-                        Sequelize.fn("MONTH", Sequelize.col("Package_tryout.createdAt")),
-                        month
-                    ),
-                    Sequelize.where(
-                        Sequelize.fn("YEAR", Sequelize.col("Package_tryout.createdAt")),
-                        year
-                    ),
-                ],
-            };
-          } else if (year) {
-            whereCondition.createdAt = Sequelize.where(
-                Sequelize.fn("YEAR", Sequelize.col("Package_tryout.createdAt")),
-                year
-            );
-          }
-          
-          const [packageGets, totalCount] = await Promise.all([
-            Package_tryout.findAll({
-                where: whereCondition,
-                include: [
-                    {
-                        model: Type_package,
-                        attributes: ["id", "name"],
-                    },
-                ],
-                limit: limit,
-                offset: offset,
-                order: [["id", "ASC"]],
-            }),
-            Package_tryout.count({
-                where: whereCondition,
-            }),
-          ]);
-          
-          // Modifikasi hasil untuk mencocokkan struktur yang diinginkan
-          const modifiedPackageGets = packageGets.map((package) => {
-            const { Type_package, ...otherData } = package.dataValues;
-            return {
-                ...otherData,
-                Type_package_name: Type_package?.name,
-            };
-          });
-          
-          const pagination = generatePagination(
-            totalCount,
-            page,
-            limit,
-            "/api/user/package/get"
-          );
-          
-          res.status(200).json({
-            status: 200,
-            message: "success get package tryout",
-            data: modifiedPackageGets,
-            pagination: pagination,
-          });
-        } catch (err) {
-          res.status(500).json({
-            status: 500,
-            message: "internal server error",
-            error: err.message,
-        });
-        console.log(err);
-        logger.error(`Error : ${err}`);
-        logger.error(`Error message: ${err.message}`);
+        whereCondition.isEvent = {
+          [Op.or]: [0, null],
+        };
       }
+
+      //filter berdasarkan packagetryout_id jika tersedia
+      if (packagetryout_id) {
+        whereCondition.id = packagetryout_id;
+      }
+
+      //filter pencarian berdasarkan title
+      if (search) {
+        whereCondition[Op.or] = [
+          {
+            title: { [Op.like]: `%${search}%` },
+          },
+        ];
+      }
+
+      //filter showDeleted untuk menampilkan data yang sudah dihapus
+      if (showDeleted) {
+        whereCondition.deletedAt = { [Op.not]: null };
+      } else {
+        whereCondition.deletedAt = null;
+      }
+
+      //filter berdasarkan bulan dan tahun (berdasarkan createdAt)
+      if (month && year) {
+        whereCondition.createdAt = {
+          [Op.and]: [
+            Sequelize.where(
+              Sequelize.fn("MONTH", Sequelize.col("Package_tryout.createdAt")),
+              month
+            ),
+            Sequelize.where(
+              Sequelize.fn("YEAR", Sequelize.col("Package_tryout.createdAt")),
+              year
+            ),
+          ],
+        };
+      } else if (year) {
+        whereCondition.createdAt = Sequelize.where(
+          Sequelize.fn("YEAR", Sequelize.col("Package_tryout.createdAt")),
+          year
+        );
+      }
+
+      //get data paket tryout dan jumlah total
+      const [packageGets, totalCount] = await Promise.all([
+        Package_tryout.findAll({
+          where: whereCondition,
+          include: [
+            {
+              model: Type_package,
+              attributes: ["id", "name"],
+            },
+          ],
+          limit: limit,
+          offset: offset,
+          order: [["id", "ASC"]],
+        }),
+        Package_tryout.count({
+          where: whereCondition,
+        }),
+      ]);
+
+      const modifiedPackageGets = packageGets.map((package) => {
+        const { Type_package, ...otherData } = package.dataValues;
+        return {
+          ...otherData,
+          Type_package_name: Type_package?.name,
+        };
+      });
+
+      const pagination = generatePagination(
+        totalCount,
+        page,
+        limit,
+        "/api/user/package/get"
+      );
+
+      res.status(200).json({
+        status: 200,
+        message: "success get package tryout",
+        data: modifiedPackageGets,
+        pagination: pagination,
+      });
+    } catch (err) {
+      res.status(500).json({
+        status: 500,
+        message: "internal server error",
+        error: err.message,
+      });
+      console.log(err);
+      logger.error(`Error : ${err}`);
+      logger.error(`Error message: ${err.message}`);
+    }
   },
 
   //get semua data paket tryout by type
@@ -506,7 +512,7 @@ module.exports = {
         include: [
           {
             model: Bank_package,
-            include: [{ model: Bank_soal}],
+            include: [{ model: Bank_soal }],
           },
         ],
       });
@@ -515,13 +521,20 @@ module.exports = {
       await transaction.commit();
 
       // Response sukses
-      res.status(200).json(response(200,"Successfully updated package tryout", packageAfterUpdate)
-    );
-  } catch (err) {
-    // Rollback transaksi jika terjadi error
-    await transaction.rollback();
-    res.status(500).json(response(500, "Internal server error", err));
-    console.log(err);
+      res
+        .status(200)
+        .json(
+          response(
+            200,
+            "Successfully updated package tryout",
+            packageAfterUpdate
+          )
+        );
+    } catch (err) {
+      // Rollback transaksi jika terjadi error
+      await transaction.rollback();
+      res.status(500).json(response(500, "Internal server error", err));
+      console.log(err);
     }
   },
 
