@@ -14,6 +14,7 @@ module.exports = (sequelize, DataTypes) => {
     rapor: DataTypes.STRING,
     userinfo_id: DataTypes.STRING,
     status: DataTypes.INTEGER,
+    note: DataTypes.TEXT
   }, {
     sequelize,
     modelName: 'Rapor',
