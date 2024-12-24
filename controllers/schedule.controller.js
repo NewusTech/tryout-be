@@ -313,90 +313,7 @@ module.exports = {
     }
   },
 
-  //   getUserScheduleTryout: async (req, res) => {
-  //     try {
-  //         const search = req.query.search ?? null;
-
-  //         const whereCondition = {};
-
-  //         if (search) {
-  //             whereCondition[Op.or] = [
-  //                 {
-  //                     title: { [Op.like]: `%${search}%` },
-  //                 },
-  //             ];
-  //         }
-
-  //         const currentDate = moment().format('YYYY-MM-DD');
-  //         const currentTime = new Date();
-  //         const thirtyMinutesBeforeNow = new Date(currentTime.getTime() - 30 * 60 * 1000);
-
-  //         //filter jadwal pada hari ini dan bisa dilihat pada H-30 menit sebelum waktu mulai
-  //         whereCondition[Op.and] = [
-  //             Sequelize.where(Sequelize.col('tanggal'), currentDate),
-  //             Sequelize.literal(`STR_TO_DATE(CONCAT(tanggal, ' ', waktu), '%Y-%m-%d %H:%i:%s') >= '${thirtyMinutesBeforeNow.toISOString()}'`)
-  //         ];
-
-  //         //query untuk mengambil data schedule sesuai filter
-  //         const scheduleData = await Schedule.findAll({
-  //             where: whereCondition,
-  //             include: [
-  //                 {
-  //                     model: Package_tryout,
-  //                     attributes: ["id", "title"],
-  //                 },
-  //             ],
-  //             order: [["tanggal", "ASC"], ["waktu", "ASC"]],
-  //         });
-
-  //         const modifiedScheduleData = scheduleData.map((schedule) => {
-  //             const { id, packagetryout_id, title, tanggal, waktu, createdAt, updatedAt, Package_tryout } = schedule.dataValues;
-
-  //             const startDateTime = moment(`${tanggal} ${waktu}`, 'YYYY-MM-DD HH:mm:ss');
-  //             const currentTime = moment();
-
-  //             let status;
-  //             let timeLeftMinutes = startDateTime.diff(currentTime, 'minutes');
-
-  //             if (timeLeftMinutes > 0) {
-  //                 status = `Tryout akan dimulai dalam ${timeLeftMinutes} menit`;
-  //             } else if (timeLeftMinutes <= 0 && timeLeftMinutes > -120) {
-  //                 status = `Tryout sedang berlangsung`;
-  //             } else {
-  //                 status = `Tryout sudah selesai`;
-  //             }
-
-  //             return {
-  //                 id: id,
-  //                 scheduleTitle: title,
-  //                 packagetryout_id: packagetryout_id,
-  //                 packageTryoutTitle: Package_tryout?.title ?? 'Tidak Ditemukan',
-  //                 tanggal: moment(tanggal).format('D MMMM YYYY'),
-  //                 waktu: waktu,
-  //                 status: status,
-  //                 timeLeftMinutes: timeLeftMinutes > 0 ? timeLeftMinutes : 0,
-  //                 createdAt: moment(createdAt).format('D MMMM YYYY HH:mm:ss'),
-  //                 updatedAt: moment(updatedAt).format('D MMMM YYYY HH:mm:ss')
-  //             };
-  //         });
-
-  //         res.status(200).json({
-  //             status: 200,
-  //             message: "Success get schedule tryout",
-  //             data: modifiedScheduleData
-  //         });
-  //     } catch (err) {
-  //         res.status(500).json({
-  //             status: 500,
-  //             message: "Internal server error",
-  //             error: err.message,
-  //         });
-  //         console.log(err);
-  //     }
-  //   },
-
   //get data schedule berdasarkan id
-  
   getSchedulById: async (req, res) => {
     try {
       let ScheduleGet = await Schedule.findOne({
@@ -426,40 +343,57 @@ module.exports = {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
 
-      //schedule_id tidak diinput, kembalikan response dengan data null
       if (!schedule_id) {
         return res.status(200).json({
           code: 200,
-          message: "schedule ID is not found",
+          message: "Schedule ID is not found",
           scheduleTitle: null,
           tryoutTitle: null,
           data: null,
         });
       }
 
-      //get data schedule untuk mendapatkan package_tryout_id dan title
       const schedule = await Schedule.findOne({
         where: { id: schedule_id },
         attributes: ["id", "title", "packagetryout_id"],
         include: [
           {
             model: Package_tryout,
+            where: { isEvent: 1 },
             attributes: ["title", "duration"],
           },
         ],
       });
 
       if (!schedule) {
-        return res
-          .status(404)
-          .json({ code: 404, message: "Schedule not found" });
+        return res.status(404).json({
+          code: 404,
+          message: "Schedule not found or Package is not an event",
+        });
       }
 
       const tryoutId = schedule.packagetryout_id;
 
-      //get data peserta berdasarkan tryout ID
+      //get semua jenis soal (TWK, TIU, TKP) dari database
+      const typeQuestions = await Type_question.findAll({
+        attributes: ["id", "name"],
+      });
+
+      const defaultQuestionTypes = typeQuestions.map((type) => ({
+        id: type.id,
+        name: type.name,
+      }));
+
+      const passingGrades = {
+        TWK: 65,
+        TIU: 80,
+        TKP: 166,
+      };
+
       const participants = await Question_form_num.findAll({
-        where: { packagetryout_id: tryoutId },
+        where: {
+          packagetryout_id: tryoutId,
+        },
         include: [
           {
             model: User_info,
@@ -471,9 +405,10 @@ module.exports = {
       });
 
       if (!participants.length) {
-        return res
-          .status(404)
-          .json({ code: 404, message: "No participants found" });
+        return res.status(404).json({
+          code: 404,
+          message: "No participants found",
+        });
       }
 
       const currentTime = new Date();
@@ -481,7 +416,6 @@ module.exports = {
         participants.map(async (participant) => {
           const { User_info, start_time, end_time } = participant;
 
-          //hitung waktu tersisa
           const endTime = new Date(end_time);
           const timeRemainingMs = endTime - currentTime;
           const timeRemaining =
@@ -489,12 +423,12 @@ module.exports = {
               ? new Date(timeRemainingMs).toISOString().substr(11, 8)
               : "00:00:00";
 
-          //get jawaban peserta dan hitung soal yang dikerjakan
+          //gett jawaban peserta
           const answers = await Question_form_input.findAll({
             where: { questionformnum_id: participant.id },
           });
 
-          //get bank soal berdasarkan tryout_id
+          //get semua soal yang tersedia di tryout
           const bankPackages = await Bank_package.findAll({
             where: { packagetryout_id: tryoutId },
             include: [
@@ -503,11 +437,11 @@ module.exports = {
                 include: [
                   {
                     model: Type_question,
-                    attributes: ["name"],
+                    attributes: ["id", "name"],
                   },
                   {
                     model: Question_form,
-                    attributes: ["id"],
+                    attributes: ["id", "correct_answer"],
                   },
                 ],
               },
@@ -516,49 +450,91 @@ module.exports = {
 
           const questionSummary = {};
 
+          //inisialisasi semua tipe soal dengan nilai 0
+          defaultQuestionTypes.forEach(({ id, name }) => {
+            questionSummary[id] = {
+              typeName: name,
+              totalQuestions: 0,
+              totalCorrect: 0,
+              totalIncorrect: 0,
+              totalUnanswered: 0,
+              totalScore: 0,
+            };
+          });
+
+          const userAnswers = {};
+          answers.forEach((answer) => {
+            userAnswers[answer.questionform_id] = answer.data;
+          });
+
           bankPackages.forEach((bankPackage) => {
             const { Bank_soal } = bankPackage;
+            const typeId = Bank_soal?.Type_question?.id;
             const typeName = Bank_soal?.Type_question?.name;
 
-            if (!typeName) return;
+            if (!typeId || !typeName) return;
 
-            if (!questionSummary[typeName]) {
-              questionSummary[typeName] = {
+            if (!questionSummary[typeId]) {
+              questionSummary[typeId] = {
+                typeName: typeName,
                 totalQuestions: 0,
-                answered: 0,
-                passingGrade: 0, //default passing grade
+                totalCorrect: 0,
+                totalIncorrect: 0,
+                totalUnanswered: 0,
+                totalScore: 0,
               };
             }
 
-            questionSummary[typeName].totalQuestions +=
-              Bank_soal.Question_forms.length;
-            questionSummary[typeName].answered += answers.filter((answer) =>
-              Bank_soal.Question_forms.some(
-                (question) => question.id === answer.questionform_id
-              )
-            ).length;
+            Bank_soal.Question_forms.forEach((questionForm) => {
+              const correctAnswer = questionForm.correct_answer;
+              const userAnswer = userAnswers[questionForm.id];
+              let isCorrect = false;
+              let points = 0;
 
-            //data passing grade
-            const passingGrades = { TWK: 65, TIU: 80, TKP: 166 };
-            questionSummary[typeName].passingGrade =
-              passingGrades[typeName] || 0;
+              if (
+                typeof correctAnswer === "string" ||
+                typeof correctAnswer === "number"
+              ) {
+                isCorrect = String(correctAnswer) === String(userAnswer);
+                points = isCorrect ? 5 : 0;
+              } else if (Array.isArray(correctAnswer)) {
+                const correctObject = correctAnswer.find(
+                  (item) => String(item.id) === String(userAnswer)
+                );
+                if (correctObject) {
+                  isCorrect = true;
+                  points = correctObject.point || 0;
+                }
+              }
+
+              questionSummary[typeId].totalQuestions += 1;
+
+              if (userAnswer !== null && userAnswer !== undefined) {
+                if (isCorrect) {
+                  questionSummary[typeId].totalCorrect += 1;
+                  questionSummary[typeId].totalScore += points;
+                } else {
+                  questionSummary[typeId].totalIncorrect += 1;
+                }
+              } else {
+                questionSummary[typeId].totalUnanswered += 1;
+              }
+            });
           });
 
           return {
-            name: User_info.name,
+            name: User_info?.name ?? "Anonymous",
             timeRemaining,
-            passingGrade: Object.entries(questionSummary).map(
-              ([typeName, summary]) => ({
-                type: typeName,
-                passingGrade: `${summary.totalQuestions * 5}/${
-                  summary.passingGrade
-                }`,
-              })
-            ),
-            questionsAnswered: Object.entries(questionSummary).map(
-              ([typeName, summary]) => ({
-                type: typeName,
-                answered: `${summary.answered}/${summary.totalQuestions}`,
+            passingGrade: Object.values(questionSummary).map((summary) => ({
+              type: summary.typeName,
+              passingGrade: `${summary.totalScore}/${
+                passingGrades[summary.typeName] || 0
+              }`,
+            })),
+            questionsAnswered: Object.values(questionSummary).map(
+              (summary) => ({
+                type: summary.typeName,
+                answered: `${summary.totalCorrect}/${summary.totalQuestions}`,
               })
             ),
           };
@@ -585,11 +561,11 @@ module.exports = {
   //get history tryout monitoring
   getHistoryMonitoring: async (req, res) => {
     try {
-      const { tryoutId, startDate, endDate, search } = req.query;
+      const { schedule_id, startDate, endDate, search } = req.query;
 
       // Query filter
       const whereCondition = {
-        ...(tryoutId && { packagetryout_id: tryoutId }),
+        ...(schedule_id && { packagetryout_id: schedule_id }),
         ...(startDate &&
           endDate && {
             createdAt: {
