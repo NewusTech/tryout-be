@@ -18,6 +18,9 @@ module.exports = {
       status: {
         type: Sequelize.INTEGER
       },
+      note: {
+        type: Sequelize.TEXT
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE
