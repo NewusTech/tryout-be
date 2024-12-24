@@ -21,6 +21,9 @@ module.exports = {
         packagetryout_id: {
           type: Sequelize.INTEGER
         },
+        schedule_id: {
+          type: Sequelize.INTEGER
+        },
         sertifikat: {
           type: Sequelize.STRING
         },
