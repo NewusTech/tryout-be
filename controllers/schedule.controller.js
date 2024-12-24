@@ -549,26 +549,23 @@ module.exports = {
                   isCorrect = true;
                   points = correctObject.point || 5;  // Ambil skor dari database, default 5
                 }
-              } 
-              // Jika jawaban benar kosong atau tidak tersedia
-              else {
-                console.log(`Correct answer not found for questionForm ID: ${questionForm.id}`);
               }
             
               // Update statistik jumlah soal dan jawaban
               questionSummary[typeId].totalQuestions += 1;
             
+              // Cek apakah peserta menjawab
               if (userAnswer !== null && userAnswer !== undefined) {
-                if (isCorrect) {
-                  questionSummary[typeId].totalCorrect += 1;
-                  questionSummary[typeId].totalScore += points;
-                } else {
-                  questionSummary[typeId].totalIncorrect += 1;
-                }
+                // Hitung sebagai answered meskipun salah
+                questionSummary[typeId].totalCorrect += isCorrect ? 1 : 0;
+                questionSummary[typeId].totalIncorrect += isCorrect ? 0 : 1;
+                questionSummary[typeId].totalScore += points;
               } else {
+                // Jika tidak menjawab, tambahkan ke unanswered
                 questionSummary[typeId].totalUnanswered += 1;
               }
-            });            
+            });
+                      
           });
 
           return {
