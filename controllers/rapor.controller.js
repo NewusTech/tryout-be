@@ -1,5 +1,5 @@
 const { response } = require('../helpers/response.formatter');
-const { Setting_sertifikat, Question_form, Question_form_num, Package_tryout, User_info, User, Bank_package, Bank_soal, Type_question, Provinsi, Kota, Rapor, sequelize } = require('../models');
+const { Setting_sertifikat, Question_form, Question_form_input, Question_form_num, Package_tryout, User_info, User, Bank_package, Bank_soal, Type_question, Provinsi, Kota, Rapor, sequelize } = require('../models');
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
@@ -22,7 +22,7 @@ module.exports = {
 
     getRapor: async (req, res) => {
         try {
-            const userinfo_id = req.param.id;
+            const userinfo_id = req.params.userinfo_id;
             const limit = parseInt(req.query.limit) || 10;
             const page = parseInt(req.query.page) || 1;
             const offset = (page - 1) * limit;
@@ -65,10 +65,11 @@ module.exports = {
                 order: [["createdAt", "DESC"]],
             });
     
+            //cek history kosong
             if (!histories.length) {
                 return res.status(404).json({
                     code: 404,
-                    message: 'No history found',
+                    message: 'Belum mengerjakan tryout',
                     data: [],
                 });
             }
@@ -79,7 +80,7 @@ module.exports = {
                 "TKP": 166,
             };
     
-            const formattedHistories = histories.map((history) => {
+            const formattedHistories = await Promise.all(histories.map(async (history) => {
                 if (!history.Package_tryout) {
                     return {
                         id: history.id,
@@ -87,10 +88,23 @@ module.exports = {
                     };
                 }
     
-                const answers = history.Question_form_inputs?.map((input) => ({
-                    questionform_id: input.questionform_id,
-                    data: input.data,
-                })) || [];
+                //get jawaban pengguna
+                const answers = await Question_form_input.findAll({
+                    where: { questionformnum_id: history.id },
+                    attributes: ['questionform_id', 'data'],
+                });
+    
+                if (!answers.length) {
+                    return {
+                        id: history.id,
+                        title: history.Package_tryout.title,
+                        slug: history.Package_tryout.slug,
+                        startTime: moment(history.start_time).format('D MMMM YYYY'),
+                        endTime: moment(history.end_time).format('D MMMM YYYY'),
+                        description: history.Package_tryout.description,
+                        message: 'Belum mengerjakan',
+                    };
+                }
     
                 const userAnswers = {};
                 answers.forEach((answer) => {
@@ -101,7 +115,7 @@ module.exports = {
                 history.Package_tryout.Bank_packages.forEach((bankPackage) => {
                     const bankSoals = Array.isArray(bankPackage.Bank_soal) 
                         ? bankPackage.Bank_soal 
-                        : [bankPackage.Bank_soal].filter(Boolean); // Pastikan Bank_soal adalah array
+                        : [bankPackage.Bank_soal].filter(Boolean);
                     
                     bankSoals.forEach((bankSoal) => {
                         const typeQuestionId = bankSoal.typequestion_id;
@@ -188,7 +202,7 @@ module.exports = {
                     statusTryout: isLolos,
                     typeQuestionSummary, 
                 };
-            });
+            }));
     
             res.status(200).json({
                 code: 200,
@@ -214,6 +228,14 @@ module.exports = {
                     message: 'User not authorized'
                 });
             }
+
+            const rapor = await Rapor.findOne({
+                where: {
+                    userinfo_id: userinfo_id,
+                    // status: 1 
+                },
+                attributes: ['rapor', 'note', 'status', 'updatedAt']
+            });
     
             //get data setting sertifikat
             let sertifikat = await Setting_sertifikat.findOne({
@@ -231,9 +253,15 @@ module.exports = {
                 }
             } catch (err) {
                 console.error('Error fetching rapor data from API:', err.message);
-                if (err.response && err.response.data) {
-                    console.error('Error response data:', err.response.data);
+                if (err.response && err.response.status === 404) {
+                    return res.status(404).json({
+                        code: 404,
+                        message: err.response.data.message || 'Belum mengerjakan tryout',
+                        data: []
+                    });
                 }
+    
+                // Jika error lain (500, 403, dll)
                 return res.status(500).json({
                     message: 'Error fetching rapor data',
                     error: err.message
@@ -273,6 +301,7 @@ module.exports = {
             const templatePath = path.resolve(__dirname, '../views/rapor_template.html');
             let htmlContent = fs.readFileSync(templatePath, 'utf8');
     
+            let note = rapor?.note?.trim() ? rapor.note : 'Tidak ada catatan';
             const genderFix = user.gender === 1 ? "Perempuan" : "Laki-laki";
             const tanggalInfo = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
             const placeholders = {
@@ -289,7 +318,10 @@ module.exports = {
                 '{{title}}': sertifikat?.title ?? 'Tidak Ditemukan',
                 '{{settingName}}': sertifikat?.name ?? 'Tidak Ditemukan',
                 '{{sign}}': sertifikat?.sign ?? 'Tidak Ditemukan',
+                '{{note}}': note  // Tambahkan catatan ke dalam template
             };
+
+            console.log('Note:', note);
     
             for (const [key, value] of Object.entries(placeholders)) {
                 htmlContent = htmlContent.replace(new RegExp(key, 'g'), value);
@@ -360,29 +392,37 @@ module.exports = {
             res.status(500).json({ message: 'Internal Server Error', error: error.message });
         }
     },
-
+    
     generateOutputRapor: async (req, res) => {
         try {
-            //get ID user dari autentikasi
-            const userinfo_id = req.user.userId;
-    
-            if (!userinfo_id) {
-                return res.status(400).json({ message: "User not authorized" });
+            const { slug } = req.params; 
+        
+            const userInfo = await User_info.findOne({
+                where: { slug: slug },
+                attributes: ['id', 'slug']
+            });
+        
+            //jika user dengan slug tidak ditemukan
+            if (!userInfo) {
+                return res.status(404).json({
+                    message: "User not found",
+                });
             }
-    
+        
+            const userinfo_id = userInfo.id;
+        
             const apiURL = `${process.env.SERVER_URL}/user/rapor/output/get/${userinfo_id}`;
-
+        
             const responsePDF = await axios.get(apiURL, {
                 responseType: "arraybuffer",
                 headers: { "Cache-Control": "no-cache" },
             });
-    
+        
             const pdfBuffer = responsePDF.data;
-    
-            //AWS S3 untuk menyimpan file
+        
             const timestamp = new Date().getTime();
             const uniqueFileName = `${timestamp}-rapor-${userinfo_id}.pdf`;
-    
+        
             const uploadParams = {
                 Bucket: process.env.AWS_BUCKET,
                 Key: `${process.env.PATH_AWS}/rapor/${uniqueFileName}`,
@@ -391,38 +431,36 @@ module.exports = {
                 ContentType: "application/pdf",
             };
     
-            //upload ke AWS S3
             const command = new PutObjectCommand(uploadParams);
             await s3Client.send(command);
-    
+        
             //generate URL file PDF di AWS S3
             const raporPath = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
-    
+        
             const [rapor, created] = await Rapor.findOrCreate({
                 where: { userinfo_id: userinfo_id },
                 defaults: {
                     rapor: raporPath,
-                    status: 0,
+                    status: 0 
                 },
             });
-    
+        
             if (!created) {
-                //jika data sudah ada, lakukan update
+                //update jika data sudah ada
                 await rapor.update({
                     rapor: raporPath,
-                    status: 0,
+                    status: 1 
                 });
-                console.log("Sertifikat berhasil diperbarui di AWS:", raporPath);
-    
+                console.log("Rapor berhasil diperbarui di AWS:", raporPath);
+        
                 return res.status(200).json({
-                    message: "Sertifikat berhasil diperbarui",
+                    message: "Rapor berhasil diperbarui",
                     raporPath: raporPath,
                 });
             }
-    
+        
             console.log("Rapor berhasil diunggah ke AWS:", raporPath);
-    
-            // 8. Berikan respons sukses jika data baru dibuat
+        
             res.status(200).json({
                 message: "Rapor berhasil dibuat dan diunggah",
                 raporPath: raporPath,
@@ -435,7 +473,7 @@ module.exports = {
             });
         }
     },
-
+    
     getUserRapor: async (req, res) => {
         try {
             //get userinfo_id dari params
@@ -444,9 +482,9 @@ module.exports = {
             let rapor = await Rapor.findOne({
                 where: {
                     userinfo_id: userinfo_id,
-                    status: 1
+                    status: 2
                 },
-                attributes: ['id', 'userinfo_id', 'rapor', 'status'],
+                attributes: ['id', 'userinfo_id', 'rapor', 'status', 'note'],
             });
     
             //jika data tidak ditemukan
@@ -466,6 +504,7 @@ module.exports = {
                     userinfo_id: rapor.userinfo_id,
                     rapor: rapor.rapor,
                     status: rapor.status,
+                    note: rapor.note,
                 },
             });
         } catch (err) {
@@ -481,33 +520,51 @@ module.exports = {
 
     updateStatusRapor: async (req, res) => {
         try {
-            const { userinfo_id } = req.params;
+            const { slug } = req.params;  
     
+            const userInfo = await User_info.findOne({
+                where: { slug: slug }, 
+                attributes: ['id', 'slug']
+            });
+    
+            //kondisi jika user dengan slug tidak ditemukan
+            if (!userInfo) {
+                return res.status(404).json({
+                    status: 404,
+                    message: "User dengan slug tersebut tidak ditemukan",
+                    data: null
+                });
+            }
+    
+            const userinfo_id = userInfo.id;
+    
+            //cari rapor berdasarkan userinfo_id
             let raporGet = await Rapor.findOne({
                 where: {
                     userinfo_id: userinfo_id,
                 },
-                attributes: ['id', 'rapor', 'userinfo_id', 'status', 'createdAt', 'updatedAt']
+                attributes: ['id', 'rapor', 'userinfo_id', 'status', 'note', 'createdAt', 'updatedAt']
             });
     
-            //jika data rapor tidak ditemukan
             if (!raporGet) {
                 return res.status(404).json({
                     status: 404,
-                    message: "Rapor tidak ditemukan",
+                    message: "Rapor tidak ditemukan untuk user ini",
                     data: null
                 });
             }
     
             const schema = {
-                status: { type: "number" }
+                status: { type: "number", optional: "true"}, 
+                note: { type: "string", optional: true, empty: true }
             };
     
             let raporUpdateObj = {
-                status: req.body.status ?? 1 
+                status: req.body.status,
+                note: req.body.note
             };
     
-            //validasi data yang akan diperbarui
+            //validasi data update
             const validate = v.validate(raporUpdateObj, schema);
             if (validate.length > 0) {
                 return res.status(400).json({
@@ -520,10 +577,16 @@ module.exports = {
             //update status rapor
             await Rapor.update(raporUpdateObj, { where: { userinfo_id: userinfo_id } });
     
-            //get data rapor terbaru setelah update
+            //get data terbaru setelah update
             let raporAfterUpdate = await Rapor.findOne({
                 where: { userinfo_id: userinfo_id },
-                attributes: ['id', 'rapor', 'userinfo_id', 'status', 'createdAt', 'updatedAt'] 
+                attributes: ['id', 'rapor', 'userinfo_id', 'status', 'note' ,'createdAt', 'updatedAt'],
+                include: [
+                    {
+                        model: User_info,
+                        attributes: ['slug'] 
+                    }
+                ]
             });
     
             res.status(200).json({
@@ -533,7 +596,9 @@ module.exports = {
                     id: raporAfterUpdate.id,
                     rapor: raporAfterUpdate.rapor,
                     userinfo_id: raporAfterUpdate.userinfo_id,
+                    userinfo_slug: raporAfterUpdate.User_info.slug,
                     status: raporAfterUpdate.status,
+                    note: raporAfterUpdate.note,
                     createdAt: raporAfterUpdate.createdAt,
                     updatedAt: raporAfterUpdate.updatedAt
                 }
@@ -547,6 +612,7 @@ module.exports = {
             });
         }
     }
+    
     
 
 };
