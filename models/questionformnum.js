@@ -14,6 +14,9 @@ module.exports = (sequelize, DataTypes) => {
       Question_form_num.belongsTo(models.User_info, {
         foreignKey: 'userinfo_id',
       });
+      Question_form_num.belongsTo(models.Schedule, {
+        foreignKey: 'schedule_id',
+      });
     }
   }
   Question_form_num.init({
@@ -27,6 +30,7 @@ module.exports = (sequelize, DataTypes) => {
     start_time: DataTypes.STRING,
     end_time: DataTypes.STRING,
     attempt: DataTypes.INTEGER,
+    schedule_id: DataTypes.INTEGER,
   }, {
     sequelize,
     modelName: 'Question_form_num',
