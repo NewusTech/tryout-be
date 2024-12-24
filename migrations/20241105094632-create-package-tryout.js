@@ -9,9 +9,9 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.INTEGER
       },
-      user_id: {
-        type: Sequelize.INTEGER
-      },
+      // user_id: {
+      //   type: Sequelize.INTEGER
+      // },
       title: {
         type: Sequelize.STRING
       },
@@ -35,6 +35,9 @@ module.exports = {
       },
       duration: {
         type: Sequelize.STRING
+      },
+      isEvent: {
+        type: Sequelize.INTEGER
       },
       createdAt: {
         allowNull: false,
