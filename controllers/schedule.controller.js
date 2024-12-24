@@ -343,254 +343,44 @@ module.exports = {
   },
 
   //get live monitoring tryout
-  // getLiveMonitoringScoring: async (req, res) => {
-  //   try {
-  //     const { schedule_id } = req.query;
-  //     const page = parseInt(req.query.page) || 1;
-  //     const limit = parseInt(req.query.limit) || 10;
-
-  //     if (!schedule_id) {
-  //       return res.status(200).json({
-  //         code: 200,
-  //         message: "Schedule ID is not found",
-  //         scheduleTitle: null,
-  //         tryoutTitle: null,
-  //         data: null,
-  //       });
-  //     }
-
-  //     const schedule = await Schedule.findOne({
-  //       where: { id: schedule_id },
-  //       attributes: ["id", "title", "packagetryout_id"],
-  //       include: [
-  //         {
-  //           model: Package_tryout,
-  //           where: { isEvent: 1 },
-  //           attributes: ["title", "duration"],
-  //         },
-  //       ],
-  //     });
-
-  //     if (!schedule) {
-  //       return res.status(404).json({
-  //         code: 404,
-  //         message: "Schedule not found or Package is not an event",
-  //       });
-  //     }
-
-  //     const tryoutId = schedule.packagetryout_id;
-
-  //     //get semua jenis soal (TWK, TIU, TKP) dari database
-  //     const typeQuestions = await Type_question.findAll({
-  //       attributes: ["id", "name"],
-  //     });
-
-  //     const defaultQuestionTypes = typeQuestions.map((type) => ({
-  //       id: type.id,
-  //       name: type.name,
-  //     }));
-
-  //     const passingGrades = {
-  //       TWK: 65,
-  //       TIU: 80,
-  //       TKP: 166,
-  //     };
-
-  //     const participants = await Question_form_num.findAll({
-  //       where: {
-  //         packagetryout_id: tryoutId,
-  //       },
-  //       include: [
-  //         {
-  //           model: User_info,
-  //           attributes: ["id", "name"],
-  //         },
-  //       ],
-  //       limit,
-  //       offset: (page - 1) * limit,
-  //     });
-
-  //     if (!participants.length) {
-  //       return res.status(404).json({
-  //         code: 404,
-  //         message: "No participants found",
-  //       });
-  //     }
-
-  //     const currentTime = new Date();
-  //     const formattedParticipants = await Promise.all(
-  //       participants.map(async (participant) => {
-  //         const { User_info, start_time, end_time } = participant;
-
-  //         const endTime = new Date(end_time);
-  //         const timeRemainingMs = endTime - currentTime;
-  //         const timeRemaining =
-  //           timeRemainingMs > 0
-  //             ? new Date(timeRemainingMs).toISOString().substr(11, 8)
-  //             : "00:00:00";
-
-  //         //gett jawaban peserta
-  //         const answers = await Question_form_input.findAll({
-  //           where: { questionformnum_id: participant.id },
-  //         });
-
-  //         //get semua soal yang tersedia di tryout
-  //         const bankPackages = await Bank_package.findAll({
-  //           where: { packagetryout_id: tryoutId },
-  //           include: [
-  //             {
-  //               model: Bank_soal,
-  //               include: [
-  //                 {
-  //                   model: Type_question,
-  //                   attributes: ["id", "name"],
-  //                 },
-  //                 {
-  //                   model: Question_form,
-  //                   attributes: ["id", "correct_answer"],
-  //                 },
-  //               ],
-  //             },
-  //           ],
-  //         });
-
-  //         const questionSummary = {};
-
-  //         //inisialisasi semua tipe soal dengan nilai 0
-  //         defaultQuestionTypes.forEach(({ id, name }) => {
-  //           questionSummary[id] = {
-  //             typeName: name,
-  //             totalQuestions: 0,
-  //             totalCorrect: 0,
-  //             totalIncorrect: 0,
-  //             totalUnanswered: 0,
-  //             totalScore: 0,
-  //           };
-  //         });
-
-  //         const userAnswers = {};
-  //         answers.forEach((answer) => {
-  //           userAnswers[answer.questionform_id] = answer.data;
-  //         });
-
-  //         bankPackages.forEach((bankPackage) => {
-  //           const { Bank_soal } = bankPackage;
-  //           const typeId = Bank_soal?.Type_question?.id;
-  //           const typeName = Bank_soal?.Type_question?.name;
-
-  //           if (!typeId || !typeName) return;
-
-  //           if (!questionSummary[typeId]) {
-  //             questionSummary[typeId] = {
-  //               typeName: typeName,
-  //               totalQuestions: 0,
-  //               totalCorrect: 0,
-  //               totalIncorrect: 0,
-  //               totalUnanswered: 0,
-  //               totalScore: 0,
-  //             };
-  //           }
-
-  //           Bank_soal.Question_forms.forEach((questionForm) => {
-  //             const correctAnswer = questionForm.correct_answer;
-  //             const userAnswer = userAnswers[questionForm.id];
-  //             let isCorrect = false;
-  //             let points = 0;
-
-  //             if (
-  //               typeof correctAnswer === "string" ||
-  //               typeof correctAnswer === "number"
-  //             ) {
-  //               isCorrect = String(correctAnswer) === String(userAnswer);
-  //               points = isCorrect ? 5 : 0;
-  //             } else if (Array.isArray(correctAnswer)) {
-  //               const correctObject = correctAnswer.find(
-  //                 (item) => String(item.id) === String(userAnswer)
-  //               );
-  //               if (correctObject) {
-  //                 isCorrect = true;
-  //                 points = correctObject.point || 0;
-  //               }
-  //             }
-
-  //             questionSummary[typeId].totalQuestions += 1;
-
-  //             if (userAnswer !== null && userAnswer !== undefined) {
-  //               if (isCorrect) {
-  //                 questionSummary[typeId].totalCorrect += 1;
-  //                 questionSummary[typeId].totalScore += points;
-  //               } else {
-  //                 questionSummary[typeId].totalIncorrect += 1;
-  //               }
-  //             } else {
-  //               questionSummary[typeId].totalUnanswered += 1;
-  //             }
-  //           });
-  //         });
-
-  //         return {
-  //           name: User_info?.name ?? "Anonymous",
-  //           timeRemaining,
-  //           passingGrade: Object.values(questionSummary).map((summary) => ({
-  //             type: summary.typeName,
-  //             passingGrade: `${summary.totalScore}/${
-  //               passingGrades[summary.typeName] || 0
-  //             }`,
-  //           })),
-  //           questionsAnswered: Object.values(questionSummary).map(
-  //             (summary) => ({
-  //               type: summary.typeName,
-  //               answered: `${summary.totalCorrect}/${summary.totalQuestions}`,
-  //             })
-  //           ),
-  //         };
-  //       })
-  //     );
-
-  //     res.status(200).json({
-  //       code: 200,
-  //       message: "Success get live monitoring scoring",
-  //       scheduleTitle: schedule.title,
-  //       tryoutTitle: schedule.Package_tryout?.title,
-  //       data: formattedParticipants,
-  //     });
-  //   } catch (error) {
-  //     console.error(error);
-  //     res.status(500).json({
-  //       code: 500,
-  //       message: "Internal server error",
-  //       error: error.message,
-  //     });
-  //   }
-  // },
-
   getLiveMonitoringScoring: async (req, res) => {
     try {
-      const { packagetryout_id } = req.query;
+      const { schedule_id } = req.query;
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
 
-      if (!packagetryout_id) {
+      if (!schedule_id) {
         return res.status(200).json({
           code: 200,
-          message: "Package Tryout ID is not found",
+          message: "Schedule ID is not found",
+          scheduleTitle: null,
+          tryoutTitle: null,
           data: null,
         });
       }
 
-      const packageTryout = await Package_tryout.findOne({
-        where: { id: packagetryout_id, isEvent: 1 },
-        attributes: ["id", "title", "duration"],
+      const schedule = await Schedule.findOne({
+        where: { id: schedule_id },
+        attributes: ["id", "title", "packagetryout_id"],
+        include: [
+          {
+            model: Package_tryout,
+            where: { isEvent: 1 },
+            attributes: ["title", "duration"],
+          },
+        ],
       });
 
-      if (!packageTryout) {
+      if (!schedule) {
         return res.status(404).json({
           code: 404,
-          message: "Package Tryout not found or is not an event",
+          message: "Schedule not found or Package is not an event",
         });
       }
 
-      // Ambil semua jenis soal (TWK, TIU, TKP)
+      const tryoutId = schedule.packagetryout_id;
+
+      //get semua jenis soal (TWK, TIU, TKP) dari database
       const typeQuestions = await Type_question.findAll({
         attributes: ["id", "name"],
       });
@@ -606,10 +396,9 @@ module.exports = {
         TKP: 166,
       };
 
-      // Ambil peserta tryout berdasarkan packagetryout_id
       const participants = await Question_form_num.findAll({
         where: {
-          packagetryout_id: packagetryout_id,
+          packagetryout_id: tryoutId,
         },
         include: [
           {
@@ -640,14 +429,14 @@ module.exports = {
               ? new Date(timeRemainingMs).toISOString().substr(11, 8)
               : "00:00:00";
 
-          // Ambil jawaban peserta
+          //gett jawaban peserta
           const answers = await Question_form_input.findAll({
             where: { questionformnum_id: participant.id },
           });
 
-          // Ambil semua soal yang tersedia di paket tryout
+          //get semua soal yang tersedia di tryout
           const bankPackages = await Bank_package.findAll({
-            where: { packagetryout_id: packagetryout_id },
+            where: { packagetryout_id: tryoutId },
             include: [
               {
                 model: Bank_soal,
@@ -667,7 +456,7 @@ module.exports = {
 
           const questionSummary = {};
 
-          // Inisialisasi semua tipe soal dengan nilai 0
+          //inisialisasi semua tipe soal dengan nilai 0
           defaultQuestionTypes.forEach(({ id, name }) => {
             questionSummary[id] = {
               typeName: name,
@@ -761,7 +550,8 @@ module.exports = {
       res.status(200).json({
         code: 200,
         message: "Success get live monitoring scoring",
-        tryoutTitle: packageTryout.title,
+        scheduleTitle: schedule.title,
+        tryoutTitle: schedule.Package_tryout?.title,
         data: formattedParticipants,
       });
     } catch (error) {
@@ -773,7 +563,6 @@ module.exports = {
       });
     }
   },
-
 
   //get history tryout monitoring
   getHistoryMonitoring: async (req, res) => {
