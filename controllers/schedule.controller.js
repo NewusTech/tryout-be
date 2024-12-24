@@ -526,45 +526,43 @@ module.exports = {
             //     questionSummary[typeId].totalUnanswered += 1;
             //   }
             // });
+
             Bank_soal.Question_forms.forEach((questionForm) => {
               const correctAnswer = questionForm.correct_answer;
               const userAnswer = userAnswers[questionForm.id];
               let isCorrect = false;
               let points = 0;
             
-              // Penanganan jika jawaban benar adalah string atau number
-              if (
-                typeof correctAnswer === "string" ||
-                typeof correctAnswer === "number"
-              ) {
+              // Perbandingan jika jawaban benar adalah string atau angka
+              if (typeof correctAnswer === "string" || typeof correctAnswer === "number") {
                 isCorrect = String(correctAnswer) === String(userAnswer);
-                points = isCorrect ? 5 : 0;  // Skor default jika benar
+                points = isCorrect ? 5 : 0;
               } 
-              // Penanganan jika jawaban benar adalah array
+              
+              // Perbandingan jika jawaban benar adalah array (contoh: [{id: "A", point: 5}])
               else if (Array.isArray(correctAnswer)) {
                 const correctObject = correctAnswer.find(
-                  (item) => String(item.id) === String(userAnswer)  // Cek berdasarkan id jawaban
+                  (item) => String(item.id) === String(userAnswer)
                 );
+            
                 if (correctObject) {
                   isCorrect = true;
-                  points = correctObject.point || 5;  // Ambil skor dari database, default 5
+                  points = correctObject.point || 5;  // Ambil skor dari objek
                 }
               }
             
-              // Update statistik jumlah soal dan jawaban
+              // Jika jawaban peserta ada (terlepas benar/salah), hitung sebagai answered
               questionSummary[typeId].totalQuestions += 1;
-            
-              // Cek apakah peserta menjawab
               if (userAnswer !== null && userAnswer !== undefined) {
-                // Hitung sebagai answered meskipun salah
                 questionSummary[typeId].totalCorrect += isCorrect ? 1 : 0;
                 questionSummary[typeId].totalIncorrect += isCorrect ? 0 : 1;
                 questionSummary[typeId].totalScore += points;
               } else {
-                // Jika tidak menjawab, tambahkan ke unanswered
+                // Jika tidak menjawab, hitung sebagai unanswered
                 questionSummary[typeId].totalUnanswered += 1;
               }
             });
+            
                       
           });
 
