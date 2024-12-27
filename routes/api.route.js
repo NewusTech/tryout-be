@@ -24,6 +24,8 @@ const whyusRoute = require('./whyus.route');
 const dashboardRoute = require('./dashboard.route');
 const raporRoute = require('./rapor.route');
 const evaluationRoute = require('./evaluation.route');
+const programRoute = require('./program.route');
+const bannerprogramRoute = require('./bannerprogram.route');
 
 module.exports = function (app, urlApi) {
     app.use(urlApi, userRoute);
@@ -52,4 +54,6 @@ module.exports = function (app, urlApi) {
     app.use(urlApi, dashboardRoute);
     app.use(urlApi, raporRoute);
     app.use(urlApi, evaluationRoute);
+    app.use(urlApi, programRoute);
+    app.use(urlApi, bannerprogramRoute);
 }
