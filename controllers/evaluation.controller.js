@@ -24,6 +24,7 @@ module.exports = {
       const schema = {
         note: { type: "string", min: 3 },
         tanggal: { type: "string" },
+        updatedBy: { type: "string" },
       };
 
       // buat object evaluation
@@ -31,6 +32,7 @@ module.exports = {
         note: req.body.note,
         userinfo_id: userinfo_id,
         tanggal: req.body.tanggal,
+        updatedBy: req.body.updatedBy,
       };
 
       const validate = v.validate(EvaluationCreateObj, schema);
@@ -68,6 +70,7 @@ module.exports = {
         whereClause[Op.or] = [
           { note: { [Op.like]: `%${search}%` } },
           { tanggal: { [Op.like]: `%${search}%` } },
+          { updatedBy: { [Op.like]: `%${search}%` } }
         ];
       }
 
@@ -116,9 +119,7 @@ module.exports = {
       }
 
       //response menggunakan helper response.formatter
-      res
-        .status(200)
-        .json(response(200, "success get evaluation by id", evaluationGet));
+      res.status(200).json(response(200, "success get evaluation by id", evaluationGet));
     } catch (err) {
       res.status(500).json(response(500, "internal server error", err));
       console.log(err);
@@ -145,11 +146,13 @@ module.exports = {
       const schema = {
         note: { type: "string", optional: true },
         tanggal: { type: "string", optional: true },
+        updatedBy: { type: "string", optional: true },
       };
 
       let EvaluationUpdateObj = {
         note: req.body.note,
         tanggal: req.body.tanggal,
+        updatedBy: req.body.updatedBy,
       };
 
       // Validasi menggunakan module fastest-validator
@@ -169,10 +172,7 @@ module.exports = {
         where: { id: req.params.id },
       });
 
-      res
-        .status(200)
-        .json(
-          response(200, "success update evaluation", EvaluationAfterUpdate)
+      res.status(200).json(response(200, "success update evaluation", EvaluationAfterUpdate)
         );
     } catch (err) {
       res.status(500).json(response(500, "internal server error", err));

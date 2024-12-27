@@ -5,15 +5,13 @@ const {
 module.exports = (sequelize, DataTypes) => {
   class Evaluation extends Model {
     static associate(models) {
-      // Evaluation.belongsTo(models.User_info, {
-      //   foreignKey: 'userinfo_id'
-      // });
     }
   }
   Evaluation.init({
     note: DataTypes.TEXT,
-    userinfo_id: DataTypes.STRING,
+    userinfo_id: DataTypes.INTEGER,
     tanggal: DataTypes.STRING,
+    updatedBy: DataTypes.STRING,
   }, {
     sequelize,
     modelName: 'Evaluation',
