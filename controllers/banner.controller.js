@@ -67,7 +67,6 @@ module.exports = {
             console.log(err);
         }
     },
-    
 
     //mendapatkan semua data Banner
     getBanner: async (req, res) => {
@@ -198,7 +197,6 @@ module.exports = {
         }
     },
     
-
     //menghapus Banner berdasarkan id
     deleteBanner: async (req, res) => {
         try {
