@@ -38,6 +38,8 @@ module.exports = (sequelize, DataTypes) => {
     deletedAt: DataTypes.DATE,
     resetpasswordtoken: DataTypes.STRING,
     resetpasswordexpires: DataTypes.DATE,
+    verification_token: DataTypes.STRING,
+    isVerified: DataTypes.BOOLEAN,
   }, {
     sequelize,
     modelName: 'User',
