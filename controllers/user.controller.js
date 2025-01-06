@@ -39,17 +39,16 @@ module.exports = {
         const transaction = await sequelize.transaction();
     
         try {
-            // Membuat schema untuk validasi
             const schema = {
                 name: { type: "string", min: 3 },
-                email: { type: "string", min: 5, max: 50, pattern: /^\S+@\S+\.\S+$/, optional: true },
+                email: { type: "string", min: 5, max: 50, pattern: /^\S+@\S+\.\S+$/ },
                 telepon: { type: "string", min: 7, max: 15, pattern: /^[0-9]+$/, optional: true },
                 password: { type: "string", min: 5, max: 16 },
                 role_id: { type: "number", optional: true },
                 typepackage_id: { type: "number", optional: true },
             };
     
-            // Validasi
+            // Validasi input
             const validate = v.validate({
                 name: req.body.name,
                 password: req.body.password,
@@ -58,7 +57,6 @@ module.exports = {
                 telepon: req.body.telepon,
                 typepackage_id: req.body.typepackage_id !== undefined ? Number(req.body.typepackage_id) : undefined,
             }, schema);
-
     
             if (validate.length > 0) {
                 const errorMessages = validate.map(error => {
@@ -73,43 +71,86 @@ module.exports = {
                     }
                 });
     
-                res.status(400).json({
+                return res.status(400).json({
                     status: 400,
                     message: errorMessages.join(', ')
                 });
-                return;
             }
     
             const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
             const slug = `${req.body.name}-${timestamp}`;
+            const verificationToken = crypto.randomBytes(32).toString("hex");
     
-            // Membuat object untuk create userinfo
-            let userinfoCreateObj = {
+            //craete object untuk create userinfo
+            const userinfoCreateObj = {
                 name: req.body.name,
                 email: req.body.email,
                 telepon: req.body.telepon,
                 alamat: req.body.alamat,
-                slug: slug
+                slug: slug,
             };
     
-            // Membuat entri baru di tabel userinfo
-            let userinfoCreate = await User_info.create(userinfoCreateObj, { transaction });
+            const userinfoCreate = await User_info.create(userinfoCreateObj, { transaction });
     
-            // Membuat object untuk create user
-            let userCreateObj = {
+            const userCreateObj = {
                 password: passwordHash.generate(req.body.password),
                 role_id: 2,
                 typepackage_id: 1,
                 userinfo_id: userinfoCreate.id,
-                slug: slug
+                slug: slug,
+                verification_token: verificationToken,
+                isVerified: false,
             };
     
-            // Membuat user baru
-            let userCreate = await User.create(userCreateObj, { transaction });
+            //create user baru
+            const userCreate = await User.create(userCreateObj, { transaction });
     
-            // Mengirim response dengan bantuan helper response.formatter
+            //send email verifikasi
+            const verificationLink = `${process.env.SERVER_URL}/verify/account/${verificationToken}`;
+            const mailOptions = {
+                to: req.body.email,
+                from: process.env.EMAIL_NAME,
+                subject: 'Verifikasi Akun Anda',
+                html: `
+                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <h2 style="color: #4A055B;">Halo, ${req.body.name}</h2>
+
+                    <p>
+                        Terima kasih telah mendaftar di <strong>Master Education</strong>.
+                        Kami senang Anda bergabung! Klik tombol di bawah untuk memverifikasi akun Anda:
+                    </p><br>
+                    <div style="text-align: center; margin: 20px 0;">
+                        <a href="${verificationLink}" 
+                           style="display: inline-block; padding: 10px 20px; font-size: 16px; color: white; 
+                                  background-color: #4A055B; text-decoration: none; border-radius: 5px;">
+                           Verifikasi Akun
+                        </a><br><br><br>
+                    </div>
+                    <p>
+                        Jika tombol di atas tidak berfungsi, klik link berikut:
+                        <br>
+                        <a href="${verificationLink}" style="color: #4A055B; word-wrap: break-word;">${verificationLink}</a>
+                    </p>
+                    <hr style="border: 0; border-top: 1px solid #ddd; margin: 20px 0;">
+                    <p style="font-size: 14px; color: #777;">
+                        Jika Anda tidak mendaftar di Master Education, abaikan email ini.
+                    </p>
+                    <p style="font-size: 14px; color: #777;">
+                        Terima kasih,<br>Tim <strong>Master Education</strong>
+                    </p>
+                </div>
+            `,
+            };
+    
+            transporter.sendMail(mailOptions, async (err) => {
+                if (err) {
+                    await transaction.rollback();
+                    return res.status(500).json({ message: "Gagal mengirim email verifikasi." });
+                }
+            });
+    
             await transaction.commit();
-            res.status(201).json(response(201, 'user and payment created', { user: userCreate}));
+            res.status(201).json({ message: "Registrasi berhasil. Silakan cek email untuk verifikasi." });
     
         } catch (err) {
             await transaction.rollback();
@@ -119,9 +160,32 @@ module.exports = {
                     message: `${err.errors[0].path} sudah terdaftar`
                 });
             } else {
-                res.status(500).json(response(500, 'terjadi kesalahan pada server', err));
+                res.status(500).json({
+                    status: 500,
+                    message: "Terjadi kesalahan pada server",
+                    error: err,
+                });
             }
-            console.log(err);
+        }
+    },
+
+    //email verifikasi
+    verificationAccount: async (req, res) => {
+        try {
+            const { token } = req.params;
+    
+            const user = await User.findOne({ where: { verification_token: token } });
+            if (!user) {
+                return res.status(400).json({ message: "Token tidak valid." });
+            }
+    
+            user.isVerified = true;
+            user.verification_token = null; 
+            await user.save();
+    
+            res.status(200).json({ message: "Akun berhasil diverifikasi." });
+        } catch (err) {
+            res.status(500).json({ message: "Terjadi kesalahan pada server.", error: err });
         }
     },
 
@@ -152,7 +216,7 @@ module.exports = {
                 return;
             }
 
-            // Mencari data user berdasarkan nik atau email yang disimpan dalam nik
+            // Mencari data user berdasarkan telepon atau email yang disimpan dalam email
             let whereClause = {
                 [Op.or]: [
                     { name: email },
@@ -171,7 +235,7 @@ module.exports = {
                 include: [
                     {
                         model: User,
-                        attributes: ['password', 'id', 'role_id', 'typepackage_id'],
+                        attributes: ['password', 'id', 'role_id', 'typepackage_id', 'isVerified'],
                         include: [
                             {
                                 model: Role,
@@ -198,6 +262,11 @@ module.exports = {
                 return;
             }
 
+            if (!userinfo.User.isVerified) {
+                res.status(403).json(response(403, 'User not verified'));
+                return;
+            }
+
             // check password
             if (!passwordHash.verify(password, userinfo.User.password)) {
                 res.status(403).json(response(403, 'password wrong'));
@@ -213,7 +282,7 @@ module.exports = {
                 role: userinfo.User.Role.name,
                 permission: userinfo.User.permissions.map(permission => permission.name)
             }, baseConfig.auth_secret, {
-                expiresIn: 864000 // time expired 
+                expiresIn: 864000
             });
 
             res.status(200).json(response(200, 'login success', { 
@@ -270,14 +339,13 @@ module.exports = {
                 price: { type: "string", optional: true},
                 receipt: { type: "string", optional: true }
             };
-
+    
             let receiptKey;
 
-            // Proses upload untuk receipt
             if (req.files?.receipt) {
                 const timestamp = new Date().getTime();
                 const uniqueFileName = `${timestamp}-${req.files.receipt[0].originalname}`;
-    
+        
                 const uploadParams = {
                     Bucket: process.env.AWS_BUCKET,
                     Key: `${process.env.PATH_AWS}/receipt/${uniqueFileName}`,
@@ -285,14 +353,15 @@ module.exports = {
                     ACL: 'public-read',
                     ContentType: req.files.receipt[0].mimetype
                 };
-    
+        
                 const command = new PutObjectCommand(uploadParams);
-    
+        
                 await s3Client.send(command);
-    
+        
                 receiptKey = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
             }
-    
+
+
             // Validasi
             const validate = v.validate({
                 name: req.body.name,
@@ -303,9 +372,9 @@ module.exports = {
                 typepackage_id: req.body.typepackage_id !== undefined ? Number(req.body.typepackage_id) : undefined,
                 typepayment_id: req.body.typepayment_id !== undefined ? Number(req.body.typepayment_id) : undefined,
                 price: req.body.price,
-                receipt: receiptKey || null
+                receipt: receiptKey || null,
+                
             }, schema);
-
     
             if (validate.length > 0) {
                 const errorMessages = validate.map(error => {
@@ -329,11 +398,11 @@ module.exports = {
     
             const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
             const slug = `${req.body.name}-${timestamp}`;
-
+    
             const typePayment = await Type_payment.findOne({
                 where: { id: req.body.typepayment_id }
             });
-
+    
             if (!typePayment) {
                 res.status(400).json({
                     status: 400,
@@ -342,7 +411,7 @@ module.exports = {
                 return;
             }
     
-            // Membuat object untuk create userinfo
+            //create object untuk create userinfo
             let userinfoCreateObj = {
                 name: req.body.name,
                 email: req.body.email,
@@ -350,14 +419,11 @@ module.exports = {
                 alamat: req.body.alamat,
                 slug: slug
             };
-    
-            // Membuat entri baru di tabel userinfo
             let userinfoCreate = await User_info.create(userinfoCreateObj, { transaction });
-
+    
             const today = new Date();
-            
             const todayStr = today.toISOString().split("T")[0];
-            
+    
             const countToday = await Payment.count({
                 where: {
                     createdAt: {
@@ -366,25 +432,26 @@ module.exports = {
                     },
                 },
             });
-
+    
             const tanggalFormat = today.toISOString().slice(2, 10).replace(/-/g, "");
-            
             const randomCode = crypto.randomBytes(3).toString("hex").toUpperCase();
             const noPayments = `INV${tanggalFormat}${randomCode}`;
-
-
-            // Membuat user tanpa payment_id
+            const verificationToken = crypto.randomBytes(32).toString("hex");
+    
+            //create user tanpa payment_id
             let userCreateObj = {
                 password: passwordHash.generate(req.body.password),
                 role_id: 2,
                 typepackage_id: req.body.typepackage_id ? Number(req.body.typepackage_id) : undefined,
                 userinfo_id: userinfoCreate.id,
-                slug: slug
+                slug: slug,
+                verification_token: verificationToken,
+                isVerified: false,
             };
             
             let userCreate = await User.create(userCreateObj, { transaction });
             
-            // Membuat payment dengan user_id
+            //create payment dengan user_id
             let paymentCreateObj = {
                 no_payment: noPayments,
                 typepayment_id: req.body.typepayment_id,
@@ -396,26 +463,70 @@ module.exports = {
             
             let paymentCreate = await Payment.create(paymentCreateObj, { transaction });
             
-            // Perbarui payment_id di User
+            //update payment_id di User
             await userCreate.update({ payment_id: paymentCreate.id }, { transaction });
-
-            // Mengirim response dengan bantuan helper response.formatter
-            await transaction.commit();
-
-            const createdAt = new Date(paymentCreate.createdAt);
-            const paymentResponse = {
-                ...paymentCreate.dataValues, // Salin semua data payment
-                type_payment_title: typePayment.title, // Tambahkan title
-                time_payment: {
-                    date: createdAt.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }), // Format tanggal
-                    time: createdAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) // Format waktu
-                }
+    
+    
+            const verificationLink = `${process.env.SERVER_URL}/verify/account/${verificationToken}`;
+    
+            const mailOptions = {
+                to: req.body.email,
+                from: process.env.EMAIL_NAME,
+                subject: 'Verifikasi Akun Anda',
+                html: `
+                    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                        <h2 style="color: #4A055B;">Halo, ${req.body.name}</h2>
+                        <p>
+                            Terima kasih telah mendaftar di <strong>Master Education</strong>.
+                            Kami senang Anda bergabung! Klik tombol di bawah untuk memverifikasi akun Anda:
+                        </p><br>
+                        <div style="text-align: center; margin: 20px 0;">
+                            <a href="${verificationLink}" 
+                               style="display: inline-block; padding: 10px 20px; font-size: 16px; color: white; 
+                                      background-color: #4A055B; text-decoration: none; border-radius: 5px;">
+                               Verifikasi Akun
+                            </a><br><br><br>
+                        </div>
+                        <p>
+                            Jika tombol di atas tidak berfungsi, klik link berikut:
+                            <br>
+                            <a href="${verificationLink}" style="color: #4A055B; word-wrap: break-word;">${verificationLink}</a>
+                        </p>
+                        <hr style="border: 0; border-top: 1px solid #ddd; margin: 20px 0;">
+                        <p style="font-size: 14px; color: #777;">
+                            Jika Anda tidak mendaftar di Master Education, abaikan email ini.
+                        </p>
+                        <p style="font-size: 14px; color: #777;">
+                            Terima kasih,<br>Tim <strong>Master Education</strong>
+                        </p>
+                    </div>
+                `,
             };
-
-            res.status(201).json(response(201, 'user and payment created', {
-                user: userCreate,
-                payment: paymentResponse
-            }));
+    
+            //send email verifikasi
+            transporter.sendMail(mailOptions, async (err) => {
+                if (err) {
+                    await transaction.rollback();
+                    return res.status(500).json({ message: "Gagal mengirim email verifikasi." });
+                }
+    
+                await transaction.commit();
+    
+                const createdAt = new Date(paymentCreate.createdAt);
+                const paymentResponse = {
+                    ...paymentCreate.dataValues,
+                    type_payment_title: typePayment.title,
+                    time_payment: {
+                        date: createdAt.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }),
+                        time: createdAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+                    }
+                };
+    
+                res.status(201).json(response(201, 'user and payment created', {
+                    user: userCreate,
+                    payment: paymentResponse
+                }));
+            });
     
         } catch (err) {
             await transaction.rollback();
