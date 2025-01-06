@@ -21,142 +21,182 @@ const xlsx = require("xlsx");
 const fs = require("fs");
 const path = require("path");
 
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const s3Client = new S3Client({
+  region: process.env.AWS_DEFAULT_REGION,
+  credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+  useAccelerateEndpoint: true
+});
+
 module.exports = {
   // QUESTION BANK
 
-  //membuat question form multi
   createMultiQuestionForm: async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
-      // Validasi request body
-      const schema = {
-        field: { type: "string", min: 1 },
-        tipedata: { type: "string", min: 1 },
-        status: { type: "boolean", optional: true },
-        typequestion_id: { type: "number", optional: true },
-        correct_answer: { type: "any" },
-        discussion: { type: "string", min: 1 },
-        datajson: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              id: { type: "number" },
-              key: { type: "string" },
+        const schema = {
+            field: { type: "string", optional: true },
+            tipedata: { type: "string", min: 1 },
+            status: { type: "boolean", optional: true },
+            correct_answer: { type: "any" }, // Validasi dilakukan manual di bawah
+            discussion: { type: "string", min: 1 },
+            datajson: {
+                type: "array",
+                items: {
+                    type: "object",
+                    properties: {
+                        id: { type: "number" },
+                        key: { type: "string" }, // URL gambar
+                    },
+                    required: ["id", "key"],
+                },
+                optional: true,
             },
-            required: ["id", "key"],
-          },
-          optional: true,
-        },
-      };
-
-      // Pastikan request body berupa array
-      if (!req.body || !Array.isArray(req.body.questions)) {
-        res.status(400).json({
-          status: 400,
-          message: "Request body must contain an array of questions",
-        });
-        return;
-      }
-
-      console.log(req.body);
-
-      // Validasi input data
-      let errors = [];
-      let createdBankSoal = null;
-      let createdQuestions = [];
-
-      // Langkah 1: Create Bank_soal terlebih dahulu
-      const bankSoalData = req.body.banksoal;
-      const bankSoalCreate = await Bank_soal.create(
-        {
-          title: bankSoalData.title,
-          typequestion_id: bankSoalData.typequestion_id,
-        },
-        { transaction }
-      );
-
-      createdBankSoal = bankSoalCreate; // Simpan Bank_soal yang sudah dibuat
-
-      // Langkah 2: Loop untuk membuat setiap Question_form
-      for (let input of req.body.questions) {
-        let correctAnswerProcessed = null;
-
-        // Proses correct_answer
-        if (Array.isArray(input.correct_answer)) {
-          // Jika correct_answer adalah array, kita bisa mengirim array yang lebih kompleks (ID dan Point)
-          correctAnswerProcessed = input.correct_answer.map((answer) => ({
-            id: answer.id,
-            key: answer.key,
-            point: answer.point || 0, // Tambahkan point dengan nilai default 0 jika tidak ada
-          }));
-        } else if (typeof input.correct_answer === "number") {
-          // Jika correct_answer adalah number, kita anggap sebagai ID yang benar
-          correctAnswerProcessed = input.correct_answer;
-        } else {
-          errors.push({
-            input,
-            errors: ["Invalid format for correct_answer."],
-          });
-          continue;
-        }
-
-        // Objek yang akan digunakan untuk create Question_form
-        const questionFormCreateObj = {
-          field: input.field,
-          tipedata: input.tipedata,
-          status: input.status !== undefined ? Boolean(input.status) : true,
-          correct_answer: correctAnswerProcessed,
-          discussion: input.discussion,
-          datajson: input.datajson || null,
-          banksoal_id: createdBankSoal.id, // Mengaitkan soal dengan banksoal yang baru dibuat
         };
 
-        // Validasi data sebelum disimpan
-        const validate = v.validate(questionFormCreateObj, schema);
-        if (validate.length > 0) {
-          errors.push({ input, errors: validate });
-          continue;
+        const bankSoalSchema = {
+            title: { type: "string", min: 1 },
+            typequestion_id: { type: "number", optional: true },
+        };
+
+        let banksoal, questions;
+        try {
+            banksoal = JSON.parse(req.body.banksoal);
+            questions = JSON.parse(req.body.questions);
+        } catch (parseErr) {
+            return res.status(400).json({ status: 400, message: "Invalid JSON format", error: parseErr.message });
         }
 
-        // Create Question_form
-        const questionFormCreate = await Question_form.create(
-          questionFormCreateObj,
-          { transaction }
-        );
-        createdQuestions.push(questionFormCreate);
-      }
+        if (!questions || !Array.isArray(questions)) {
+            return res.status(400).json({ status: 400, message: "Request body must contain an array of questions" });
+        }
 
-      // Jika ada error pada validasi, rollback transaksi
-      if (errors.length > 0) {
-        await transaction.rollback();
-        res
-          .status(400)
-          .json({ status: 400, message: "Validation failed", errors });
-        return;
-      }
+        let errors = [];
+        let createdBankSoal = null;
+        let createdQuestions = [];
 
-      // Commit transaksi jika semuanya berhasil
-      await transaction.commit();
+        // Step 1: Create Bank_soal
+        const bankSoalValidate = v.validate(banksoal, bankSoalSchema);
+        if (bankSoalValidate.length > 0) {
+            errors.push({ input: banksoal, errors: bankSoalValidate });
+        } else {
+            const bankSoalCreate = await Bank_soal.create(
+                { title: banksoal.title, typequestion_id: banksoal.typequestion_id },
+                { transaction }
+            );
+            createdBankSoal = bankSoalCreate;
+        }
 
-      // Kembalikan response sukses
-      res.status(201).json({
-        status: 201,
-        message: "Successfully created bank soal and question forms",
-        data: {
-          bankSoal: createdBankSoal,
-          questionForms: createdQuestions,
-        },
-      });
+        // Step 2: Process Questions
+        for (let input of questions) {
+            if (!input.field) {
+                errors.push({ input, errors: ["Missing 'field' for question."] });
+                continue;
+            }
+
+            let fieldProcessed = input.field; // Default field as string
+            const fieldImageFile = req.files.find((f) => f.fieldname === fieldProcessed);
+
+            if (fieldImageFile) {
+                try {
+                    const uploadParams = {
+                        Bucket: process.env.AWS_BUCKET,
+                        Key: `${process.env.PATH_AWS}/questions/${new Date().getTime()}-${fieldImageFile.originalname}`,
+                        Body: fieldImageFile.buffer,
+                        ACL: "public-read",
+                        ContentType: fieldImageFile.mimetype,
+                    };
+                    const command = new PutObjectCommand(uploadParams);
+                    await s3Client.send(command);
+
+                    fieldProcessed = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
+                } catch (error) {
+                    console.error("Failed to upload field image:", error);
+                    errors.push({ input, errors: ["Failed to upload field image to AWS."] });
+                    continue;
+                }
+            }
+
+            let correctAnswerProcessed = null;
+            if (Array.isArray(input.correct_answer)) {
+                correctAnswerProcessed = input.correct_answer.map((answer) => ({
+                    id: answer.id,
+                    key: answer.key,
+                    point: answer.point || 0,
+                }));
+            } else if (typeof input.correct_answer === "number") {
+                correctAnswerProcessed = input.correct_answer;
+            } else {
+                errors.push({ input, errors: ["Invalid format for correct_answer."] });
+                continue;
+            }
+
+            let datajsonProcessed = [];
+            if (input.datajson && Array.isArray(input.datajson)) {
+                for (let item of input.datajson) {
+                    const file = req.files.find((f) => f.fieldname === `image_${item.id}`);
+                    if (file) {
+                        try {
+                            const uploadParams = {
+                                Bucket: process.env.AWS_BUCKET,
+                                Key: `${process.env.PATH_AWS}/options/${new Date().getTime()}-${file.originalname}`,
+                                Body: file.buffer,
+                                ACL: "public-read",
+                                ContentType: file.mimetype,
+                            };
+                            const command = new PutObjectCommand(uploadParams);
+                            await s3Client.send(command);
+
+                            const imageUrl = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
+                            datajsonProcessed.push({ id: item.id, key: imageUrl });
+                        } catch (error) {
+                            errors.push({ input, errors: [`Failed to upload image for id ${item.id}.`] });
+                            continue;
+                        }
+                    } else {
+                        datajsonProcessed.push({ id: item.id, key: item.key });
+                    }
+                }
+            }
+
+            const questionFormCreateObj = {
+                field: fieldProcessed,
+                tipedata: input.tipedata,
+                status: input.status !== undefined ? Boolean(input.status) : true,
+                correct_answer: correctAnswerProcessed,
+                discussion: input.discussion,
+                datajson: datajsonProcessed,
+                banksoal_id: createdBankSoal.id,
+            };
+
+            const validate = v.validate(questionFormCreateObj, schema);
+            if (validate.length > 0) {
+                errors.push({ input, errors: validate });
+                continue;
+            }
+
+            const questionFormCreate = await Question_form.create(questionFormCreateObj, { transaction });
+            createdQuestions.push(questionFormCreate);
+        }
+
+        if (errors.length > 0) {
+            await transaction.rollback();
+            return res.status(400).json({ status: 400, message: "Validation failed", errors });
+        }
+
+        await transaction.commit();
+        res.status(201).json({
+            status: 201,
+            message: "Successfully created bank soal and question forms",
+            data: { bankSoal: createdBankSoal, questionForms: createdQuestions },
+        });
     } catch (err) {
-      // Rollback transaksi jika terjadi error
-      await transaction.rollback();
-      console.error(err);
-      res.status(500).json({
-        status: 500,
-        message: "Internal server error",
-        error: err.message,
-      });
+        await transaction.rollback();
+        console.error(err);
+        res.status(500).json({ status: 500, message: "Internal server error", error: err.message });
     }
   },
 
@@ -999,10 +1039,47 @@ module.exports = {
       // Proses setiap baris sebagai Question_form
       for (let row of sheetData) {
         try {
-          // Parsing correct_answer dan datajson
-          const correctAnswer = JSON.parse(row.correct_answer || "[]");
-          const datajson = JSON.parse(row.datajson || "[]");
+         // Konversi id dan key ke string, lalu split
+          let idString = String(row.id || "").trim(); // Pastikan nilainya string
+          const keyString = String(row.key || "").trim(); // Pastikan nilainya string
 
+          console.log("Raw ID:", idString);
+
+          // Validasi jika id atau key kosong
+          if (!idString || !keyString) {
+            throw new Error("Both 'id' and 'key' must be provided.");
+          }
+
+          // Jika Excel mengubah 1,2 menjadi 1.2, kita bisa replace titik dengan koma
+          const fixedIdString = idString.replace('.', ','); // Mengganti titik dengan koma jika perlu
+
+          // Split id dan key berdasarkan koma
+          const ids = fixedIdString.split(",").map((id) => {
+            // Pastikan bahwa id adalah angka yang valid
+            const parsedId = parseInt(id.trim(), 10);
+            if (isNaN(parsedId)) {
+              throw new Error(`Invalid ID value: ${id}`);
+            }
+            return parsedId;
+          }); // Pastikan angka
+          const keys = keyString.split(",").map((key) => key.trim()); // Pastikan string
+
+          // Validasi jumlah id dan key
+          if (ids.length !== keys.length) {
+            throw new Error("Mismatch between the number of IDs and keys.");
+          }
+
+          // Gabungkan id dan key menjadi array of objects untuk datajson
+          const datajson = ids.map((id, index) => ({
+            id: id,
+            key: keys[index],
+          }));
+
+          console.log("Processed datajson:", datajson);
+      
+          // Parsing correct_answer jika diperlukan
+          const correctAnswer = JSON.parse(row.correct_answer || "[]");
+      
           // Buat Question_form
           const questionForm = await Question_form.create(
             {
@@ -1016,7 +1093,7 @@ module.exports = {
             },
             { transaction }
           );
-
+      
           createdQuestions.push(questionForm);
         } catch (error) {
           errors.push({

@@ -16,7 +16,7 @@ route.get('/user/bank/question/get', [mid.checkRolesAndLogout(['Super Admin', 'U
 route.get('/user/bank/question/get/:typequestion_id', [mid.checkRolesAndLogout(['Super Admin', 'User'])], questionformController.getBankSoalByType);
 route.get('/user/question/get/:banksoal_id', [mid.checkRolesAndLogout(['Super Admin', 'User'])], questionformController.getFormByBankSoal); 
 
-route.post('/user/question/form/createmulti', [mid.checkRolesAndLogout(['Super Admin'])], questionformController.createMultiQuestionForm);
+route.post('/user/question/form/createmulti', [mid.checkRolesAndLogout(['Super Admin'])], upload.any(), questionformController.createMultiQuestionForm);
 route.put('/user/question/form/update/:id', [mid.checkRolesAndLogout([ 'Super Admin'])], questionformController.updateQuestionForm); 
 route.put('/user/question/form/updatemulti', [mid.checkRolesAndLogout(['Super Admin'])], questionformController.updateMultiQuestionForm); 
 route.delete('/user/question/form/delete/:id', [mid.checkRolesAndLogout(['Super Admin'])], questionformController.deleteQuestionForm);
