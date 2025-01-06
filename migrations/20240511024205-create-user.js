@@ -37,6 +37,12 @@ module.exports = {
       resetpasswordexpires: {
         type: Sequelize.DATE
       },
+      verification_token: {
+        type: Sequelize.STRING
+      },
+      isVerified: {
+        type: Sequelize.BOOLEAN
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE
