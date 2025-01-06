@@ -13,6 +13,8 @@ route.post('/register', userController.registrasiUser);
 route.post('/login', userController.loginUser);
 route.post('/logout', [mid.checkRolesAndLogout(['Super Admin', 'User'])], userController.logoutUser); 
 route.post('/registerbyadmin', upload.fields([{ name: 'receipt', maxCount: 1 }]),  userController.createUserByAdmin);
+route.get('/verify/account/:token', userController.verificationAccount);
+
 
 // API UNTUK ADMIN / SUPER ADMIN
 route.get('/user/get', [mid.checkRolesAndLogout(['Super Admin'])], userController.getUser); 
