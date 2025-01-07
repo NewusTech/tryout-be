@@ -561,7 +561,6 @@ module.exports = {
                 role_id: req.body.role_id !== undefined ? Number(req.body.role_id) : undefined,
                 email: req.body.email,
             }, schema);
-
     
             if (validate.length > 0) {
                 const errorMessages = validate.map(error => {
@@ -585,6 +584,7 @@ module.exports = {
     
             const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
             const slug = `${req.body.name}-${timestamp}`;
+            const verificationToken = crypto.randomBytes(32).toString("hex");
     
             // Membuat object untuk create userinfo
             let userinfoCreateObj = {
@@ -601,33 +601,74 @@ module.exports = {
                 password: passwordHash.generate(req.body.password),
                 role_id: 1,
                 userinfo_id: userinfoCreate.id,
-                slug: slug
+                slug: slug,
+                verification_token: verificationToken,
+                isVerified: false,
             };
     
             // Membuat user baru
             let userCreate = await User.create(userCreateObj, { transaction });
-
-
-            // Mengirim response dengan bantuan helper response.formatter
+    
+            const verificationLink = `${process.env.SERVER_URL}/verify/account/${verificationToken}`;
+            const mailOptions = {
+                to: req.body.email,
+                from: process.env.EMAIL_NAME,
+                subject: 'Verifikasi Akun Anda',
+                html: `
+                    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                        <h2 style="color: #4A055B;">Halo, ${req.body.name}</h2>
+                        <p>Terima kasih telah mendaftar di <strong>Master Education</strong>. Klik tombol di bawah untuk memverifikasi akun Anda:</p>
+                        <div style="text-align: center; margin: 20px 0;">
+                            <a href="${verificationLink}" 
+                               style="display: inline-block; padding: 10px 20px; font-size: 16px; color: white; 
+                                      background-color: #4A055B; text-decoration: none; border-radius: 5px;">
+                               Verifikasi Akun
+                            </a>
+                        </div>
+                        <p>Jika tombol di atas tidak berfungsi, klik link berikut:<br>
+                            <a href="${verificationLink}" style="color: #4A055B;">${verificationLink}</a>
+                        </p>
+                    </div>
+                `,
+            };
+    
+            // Mengirim email
+            await transporter.sendMail(mailOptions);
+    
+            // Commit transaksi setelah email berhasil dikirim
             await transaction.commit();
-
-            res.status(201).json(response(201, 'admin created', {
-                user: userCreate,
-            }));
+    
+            res.status(201).json({
+                status: 201,
+                message: "Registrasi berhasil. Silakan cek email untuk verifikasi.",
+            });
     
         } catch (err) {
-            await transaction.rollback();
+            // Rollback hanya jika transaksi belum selesai
+            if (transaction && !transaction.finished) {
+                await transaction.rollback();
+            }
+    
             if (err.name === 'SequelizeUniqueConstraintError') {
                 res.status(400).json({
                     status: 400,
                     message: `${err.errors[0].path} sudah terdaftar`
                 });
+            } else if (err.message.includes('Gagal mengirim email')) {
+                res.status(500).json({
+                    status: 500,
+                    message: "Registrasi gagal. Tidak dapat mengirim email verifikasi.",
+                });
             } else {
-                res.status(500).json(response(500, 'terjadi kesalahan pada server', err));
+                res.status(500).json({
+                    status: 500,
+                    message: "Terjadi kesalahan pada server",
+                    error: err,
+                });
             }
-            console.log(err);
         }
     },
+    
 
     //mendapatkan semua data admin
     getAdmin: async (req, res) => {
