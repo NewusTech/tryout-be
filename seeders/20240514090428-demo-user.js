@@ -10,6 +10,7 @@ module.exports = {
         password: passwordHash.generate('123456'),
         slug: "superadmin-20240620041615213",
         role_id: 1,
+        isVerified: 1,
         createdAt: new Date(),
         updatedAt: new Date()
       },
@@ -18,6 +19,7 @@ module.exports = {
         password: passwordHash.generate('123456'),
         slug: "Newus-20240620041615213",
         role_id: 2,
+        isVerified: 1,
         createdAt: new Date(),
         updatedAt: new Date()
       },
