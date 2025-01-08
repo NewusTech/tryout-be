@@ -174,20 +174,23 @@ module.exports = {
         try {
             const { token } = req.params;
     
+            // Cari user berdasarkan token verifikasi
             const user = await User.findOne({ where: { verification_token: token } });
             if (!user) {
                 return res.status(400).json({ message: "Token tidak valid." });
             }
     
+            // Update status verifikasi user
             user.isVerified = true;
             user.verification_token = null; 
             await user.save();
     
-            res.status(200).json({ message: "Akun berhasil diverifikasi." });
+            const redirectUrl = `${process.env.FRONTEND_URL}/success-verif`;
+            return res.redirect(redirectUrl);
         } catch (err) {
-            res.status(500).json({ message: "Terjadi kesalahan pada server.", error: err });
+            res.status(500).json({ message: "Terjadi kesalahan pada server.", error: err.message });
         }
-    },
+    },    
 
     //login user
     loginUser: async (req, res) => {
@@ -669,7 +672,6 @@ module.exports = {
         }
     },
     
-
     //mendapatkan semua data admin
     getAdmin: async (req, res) => {
         try {
