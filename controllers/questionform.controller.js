@@ -990,7 +990,7 @@ module.exports = {
     }
   },
 
-  //import data bank soal ke sistem
+  //import bank soal
   importBankSoal: async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
@@ -1003,8 +1003,10 @@ module.exports = {
   
       // Membaca file Excel
       const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
-      const sheetName = workbook.SheetNames[0]; // Ambil sheet pertama
+      const sheetName = workbook.SheetNames[0]; 
       const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+  
+      console.log("Sheet Data:", sheetData); // Debug: Cek sheet data
   
       if (!sheetData || sheetData.length === 0) {
         return res.status(400).json({
@@ -1038,23 +1040,24 @@ module.exports = {
       // Proses setiap baris sebagai Question_form
       for (let row of sheetData) {
         try {
-          // Konversi id dan key ke string, lalu split
-          let idString = String(row.id || "").trim(); // Pastikan nilainya string
-          const keyString = String(row.key || "").trim(); // Pastikan nilainya string
+          // Pastikan kolom id, key, dan tipedata ada dan tidak kosong
+          if (!row.id || !row.key || !row.tipedata || row.tipedata.trim() === '') {
+            console.log("Skipping row with missing or invalid 'id', 'key', or 'tipedata':", row);
+            continue; // Langsung lewati baris ini jika tidak valid
+          }
+  
+          let idString = String(row.id || "").trim();
+          const keyString = String(row.key || "").trim();
   
           console.log("Raw ID:", idString);
-  
-          // Validasi jika id atau key kosong
-          if (!idString || !keyString) {
-            throw new Error("Both 'id' and 'key' must be provided.");
-          }
+          console.log("Raw Key:", keyString);
+          console.log("Tipedata:", row.tipedata);
   
           // Jika Excel mengubah 1,2 menjadi 1.2, kita bisa replace titik dengan koma
           const fixedIdString = idString.replace('.', ','); // Mengganti titik dengan koma jika perlu
   
           // Split id dan key berdasarkan koma
           const ids = fixedIdString.split(",").map((id) => {
-            // Pastikan bahwa id adalah angka yang valid
             const parsedId = parseInt(id.trim(), 10);
             if (isNaN(parsedId)) {
               throw new Error(`Invalid ID value: ${id}`);
@@ -1062,7 +1065,6 @@ module.exports = {
             return parsedId;
           });
   
-          // Pastikan keys memiliki jumlah yang sama dengan ids
           const keys = keyString.split(",").map((key) => key.trim());
   
           // Validasi jumlah id dan key
@@ -1070,7 +1072,6 @@ module.exports = {
             throw new Error("Mismatch between the number of IDs and keys.");
           }
   
-          // Gabungkan id dan key menjadi array of objects untuk datajson
           const datajson = ids.map((id, index) => ({
             id: id,
             key: keys[index],
@@ -1125,7 +1126,6 @@ module.exports = {
         },
       });
     } catch (err) {
-      // Rollback transaksi jika terjadi error
       await transaction.rollback();
       console.error(err);
       return res.status(500).json({
@@ -1135,7 +1135,6 @@ module.exports = {
       });
     }
   },
-
   //export data bank soal
   exportBankSoal: async (req, res) => {
     try {
