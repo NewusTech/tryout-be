@@ -651,7 +651,7 @@ module.exports = {
   //menghapus question form berdasarkan id
   deleteQuestionForm: async (req, res) => {
     try {
-      let questionformGet = await Question_form.findOne({
+      let questionformGet = await Bank_soal.findOne({
         where: {
           id: req.params.id,
         },
@@ -663,12 +663,11 @@ module.exports = {
         return;
       }
 
-      await Question_form.update(
-        { status: false },
-        {
-          where: { id: req.params.id },
+      await Bank_soal.destroy({
+        where: {
+            id: req.params.id,
         }
-      );
+      });
 
       // Response sukses
       res.status(200).json(response(200, "Success delete question form"));
@@ -1001,29 +1000,29 @@ module.exports = {
           message: "No file uploaded. Please upload an Excel file.",
         });
       }
-
+  
       // Membaca file Excel
       const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
       const sheetName = workbook.SheetNames[0]; // Ambil sheet pertama
       const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
-
+  
       if (!sheetData || sheetData.length === 0) {
         return res.status(400).json({
           status: 400,
           message: "Excel file is empty or invalid format.",
         });
       }
-
+  
       const bankSoalTitle = sheetData[0]?.banksoal_title;
       const typeQuestionId = sheetData[0]?.typequestion_id;
-
+  
       if (!bankSoalTitle || !typeQuestionId) {
         return res.status(400).json({
           status: 400,
           message: "Missing bank soal information in the Excel file.",
         });
       }
-
+  
       // Buat Bank_soal
       const createdBankSoal = await Bank_soal.create(
         {
@@ -1032,27 +1031,27 @@ module.exports = {
         },
         { transaction }
       );
-
+  
       let createdQuestions = [];
       let errors = [];
-
+  
       // Proses setiap baris sebagai Question_form
       for (let row of sheetData) {
         try {
-         // Konversi id dan key ke string, lalu split
+          // Konversi id dan key ke string, lalu split
           let idString = String(row.id || "").trim(); // Pastikan nilainya string
           const keyString = String(row.key || "").trim(); // Pastikan nilainya string
-
+  
           console.log("Raw ID:", idString);
-
+  
           // Validasi jika id atau key kosong
           if (!idString || !keyString) {
             throw new Error("Both 'id' and 'key' must be provided.");
           }
-
+  
           // Jika Excel mengubah 1,2 menjadi 1.2, kita bisa replace titik dengan koma
           const fixedIdString = idString.replace('.', ','); // Mengganti titik dengan koma jika perlu
-
+  
           // Split id dan key berdasarkan koma
           const ids = fixedIdString.split(",").map((id) => {
             // Pastikan bahwa id adalah angka yang valid
@@ -1061,25 +1060,27 @@ module.exports = {
               throw new Error(`Invalid ID value: ${id}`);
             }
             return parsedId;
-          }); // Pastikan angka
-          const keys = keyString.split(",").map((key) => key.trim()); // Pastikan string
-
+          });
+  
+          // Pastikan keys memiliki jumlah yang sama dengan ids
+          const keys = keyString.split(",").map((key) => key.trim());
+  
           // Validasi jumlah id dan key
           if (ids.length !== keys.length) {
             throw new Error("Mismatch between the number of IDs and keys.");
           }
-
+  
           // Gabungkan id dan key menjadi array of objects untuk datajson
           const datajson = ids.map((id, index) => ({
             id: id,
             key: keys[index],
           }));
-
+  
           console.log("Processed datajson:", datajson);
-      
+  
           // Parsing correct_answer jika diperlukan
           const correctAnswer = JSON.parse(row.correct_answer || "[]");
-      
+  
           // Buat Question_form
           const questionForm = await Question_form.create(
             {
@@ -1093,7 +1094,7 @@ module.exports = {
             },
             { transaction }
           );
-      
+  
           createdQuestions.push(questionForm);
         } catch (error) {
           errors.push({
@@ -1102,7 +1103,7 @@ module.exports = {
           });
         }
       }
-
+  
       if (errors.length > 0) {
         await transaction.rollback();
         return res.status(400).json({
@@ -1111,10 +1112,10 @@ module.exports = {
           errors,
         });
       }
-
+  
       // Commit transaksi jika semua berhasil
       await transaction.commit();
-
+  
       return res.status(201).json({
         status: 201,
         message: "Successfully imported bank soal and question forms",
