@@ -26,6 +26,7 @@ const raporRoute = require('./rapor.route');
 const evaluationRoute = require('./evaluation.route');
 const programRoute = require('./program.route');
 const bannerprogramRoute = require('./bannerprogram.route');
+const packageinformationRoute = require('./packageinformation.route');
 
 module.exports = function (app, urlApi) {
     app.use(urlApi, userRoute);
@@ -56,4 +57,5 @@ module.exports = function (app, urlApi) {
     app.use(urlApi, evaluationRoute);
     app.use(urlApi, programRoute);
     app.use(urlApi, bannerprogramRoute);
+    app.use(urlApi, packageinformationRoute);
 }
