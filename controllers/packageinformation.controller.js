@@ -81,7 +81,7 @@ module.exports = {
       const formattedData = packageInformationGet.map((packageinformations) => ({
         id: packageinformations.id,
         name: packageinformations.name,
-        price: packageinformations.harga,
+        price: packageinformations.price,
         duration: packageinformations.duration,
         description: packageinformations.description,
         fitur: packageinformations.Package_fiturs.map((f) => f.fitur), 
@@ -138,7 +138,7 @@ module.exports = {
       const formattedData = {
         id: packageInformationGet.id,
         name: packageInformationGet.name,
-        price: packageInformationGet.harga,
+        price: packageInformationGet.price,
         duration: packageInformationGet.duration,
         description: packageInformationGet.description,
         fitur: packageInformationGet.Package_fiturs.map((f) => f.fitur), 
