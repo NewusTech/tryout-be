@@ -16,8 +16,10 @@ module.exports = (sequelize, DataTypes) => {
   Schedule.init({
     title: DataTypes.STRING,
     packagetryout_id: DataTypes.INTEGER,
-    tanggal: DataTypes.DATEONLY,
-    waktu: DataTypes.TIME,
+    start_date: DataTypes.DATEONLY,
+    start_time: DataTypes.TIME,
+    end_date: DataTypes.DATEONLY,
+    end_time: DataTypes.TIME,
     deletedAt: DataTypes.DATE,
   }, {
     sequelize,

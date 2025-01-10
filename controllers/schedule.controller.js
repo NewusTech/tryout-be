@@ -24,42 +24,101 @@ const { generatePagination } = require("../pagination/pagination");
 module.exports = {
 
   //input schedule user
+  // createSchedule: async (req, res) => {
+  //   try {
+  //     const { title, packagetryout_id, tanggal, waktu, isEvent } = req.body;
+
+  //     if (!title || !packagetryout_id || !tanggal || !waktu) {
+  //       return res.status(400).json(response(400, "All fields are required"));
+  //     }
+
+  //     //cek apakah paket_tryout_id ada
+  //     const paketTryout = await Package_tryout.findByPk(packagetryout_id);
+  //     if (!paketTryout) {
+  //       return res.status(404).json(response(404, "Paket tryout not found"));
+  //     }
+
+  //     //create schedule tryout baru
+  //     const schedule = await Schedule.create({
+  //       title,
+  //       packagetryout_id,
+  //       tanggal,
+  //       waktu,
+  //       isEvent: isEvent ?? 1,
+  //     });
+
+  //     //update isEvent di tabel Package_tryout
+  //     await paketTryout.update({
+  //       isEvent: 1
+  //     });
+
+  //     return res
+  //       .status(201)
+  //       .json(response(201, "Schedule created successfully", schedule));
+  //   } catch (error) {
+  //     console.error(error);
+  //     return res
+  //       .status(500)
+  //       .json(response(500, "Internal server error", error.message));
+  //   }
+  // },
+
   createSchedule: async (req, res) => {
     try {
-      const { title, packagetryout_id, tanggal, waktu, isEvent } = req.body;
+        const {
+            title,
+            packagetryout_id,
+            start_date,
+            end_date,
+            start_time,
+            end_time,
+            isEvent,
+        } = req.body;
 
-      if (!title || !packagetryout_id || !tanggal || !waktu) {
-        return res.status(400).json(response(400, "All fields are required"));
-      }
+        // Validasi input
+        if (!title || !packagetryout_id || !start_date || !end_date || !start_time || !end_time) {
+            return res.status(400).json(response(400, "All fields are required"));
+        }
 
-      //cek apakah paket_tryout_id ada
-      const paketTryout = await Package_tryout.findByPk(packagetryout_id);
-      if (!paketTryout) {
-        return res.status(404).json(response(404, "Paket tryout not found"));
-      }
+        // Validasi apakah paket_tryout_id ada
+        const paketTryout = await Package_tryout.findByPk(packagetryout_id);
+        if (!paketTryout) {
+            return res.status(404).json(response(404, "Paket tryout not found"));
+        }
 
-      //create schedule tryout baru
-      const schedule = await Schedule.create({
-        title,
-        packagetryout_id,
-        tanggal,
-        waktu,
-        isEvent: isEvent ?? 1,
-      });
+        // Pastikan tanggal dan waktu valid
+        const startDateTime = new Date(`${start_date}T${start_time}`);
+        const endDateTime = new Date(`${end_date}T${end_time}`);
+        if (startDateTime >= endDateTime) {
+            return res
+                .status(400)
+                .json(response(400, "End date and time must be after start date and time"));
+        }
 
-      //update isEvent di tabel Package_tryout
-      await paketTryout.update({
-        isEvent: 1
-      });
+        // Buat schedule baru
+        const schedule = await Schedule.create({
+            title,
+            packagetryout_id,
+            start_date,
+            end_date,
+            start_time,
+            end_time,
+            isEvent: isEvent ?? 1,
+        });
 
-      return res
-        .status(201)
-        .json(response(201, "Schedule created successfully", schedule));
+        // Update isEvent di tabel Package_tryout
+        await paketTryout.update({
+            isEvent: 1,
+        });
+
+        return res
+            .status(201)
+            .json(response(201, "Schedule created successfully", schedule));
     } catch (error) {
-      console.error(error);
-      return res
-        .status(500)
-        .json(response(500, "Internal server error", error.message));
+        console.error(error);
+        return res
+            .status(500)
+            .json(response(500, "Internal server error", error.message));
     }
   },
 
@@ -142,8 +201,8 @@ module.exports = {
           limit: limit,
           offset: offset,
           order: [
-            ["tanggal", "ASC"],
-            ["waktu", "ASC"],
+            ["start_date", "ASC"],
+            ["start_time", "ASC"],
           ],
         }),
         Schedule.count({
@@ -165,8 +224,10 @@ module.exports = {
           id,
           packagetryout_id,
           title,
-          tanggal,
-          waktu,
+          start_date,
+          start_time,
+          end_date,
+          end_time,
           deletedAt,
           createdAt,
           updatedAt,
@@ -177,8 +238,10 @@ module.exports = {
           scheduleTitle: title,
           packagetryout_id: packagetryout_id,
           packageTryoutTitle: Package_tryout?.title,
-          tanggal: tanggal,
-          waktu: waktu,
+          start_date : start_date,
+          start_time : start_time,
+          end_date : end_date,
+          end_time : end_time,
           deletedAt: deletedAt,
           createdAt: createdAt,
           updatedAt: updatedAt,
@@ -212,111 +275,114 @@ module.exports = {
 
   //get schedule untuk user
   getUserScheduleTryout: async (req, res) => {
-    try {
-      const search = req.query.search ?? null;
+      try {
+          const search = req.query.search ?? null;
 
-      const whereCondition = {};
+          const whereCondition = {};
 
-      if (search) {
-        whereCondition[Op.or] = [
-          {
-            title: { [Op.like]: `%${search}%` },
-          },
+          if (search) {
+              whereCondition[Op.or] = [
+                  {
+                      title: { [Op.like]: `%${search}%` },
+                  },
+              ];
+          }
+
+          const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss"); // Waktu sekarang dalam format SQL
+
+          // Filter jadwal berdasarkan waktu aktif
+          whereCondition[Op.and] = [
+            Sequelize.literal(
+                `STR_TO_DATE(CONCAT(start_date, ' ', start_time), '%Y-%m-%d %H:%i:%s') <= '${currentDateTime}'`
+            ),
+            Sequelize.literal(
+                `STR_TO_DATE(CONCAT(end_date, ' ', end_time), '%Y-%m-%d %H:%i:%s') >= '${currentDateTime}'`
+            ),
         ];
-      }
 
-      const currentDate = moment().format("YYYY-MM-DD");
-      const currentTime = new Date();
-      const thirtyMinutesBeforeNow = new Date(
-        currentTime.getTime() - 30 * 60 * 1000
-      );
-
-      //filter jadwal pada hari ini dan bisa dilihat pada H-30 menit sebelum waktu mulai
-      whereCondition[Op.and] = [
-        Sequelize.where(Sequelize.col("tanggal"), currentDate),
-        Sequelize.literal(
-          `STR_TO_DATE(CONCAT(tanggal, ' ', waktu), '%Y-%m-%d %H:%i:%s') >= '${thirtyMinutesBeforeNow.toISOString()}'`
-        ),
-      ];
-
-      const scheduleData = await Schedule.findAll({
-        where: whereCondition,
-        include: [
-          {
-            model: Package_tryout,
-            attributes: ["id", "title"],
-            include: [
+        const scheduleData = await Schedule.findAll({
+          where: whereCondition,
+          include: [
               {
-                model: Type_package,
-                attributes: ["id", "name"],
+                  model: Package_tryout,
+                  attributes: ["id", "title"],
+                  include: [
+                      {
+                          model: Type_package,
+                          attributes: ["id", "name"],
+                      },
+                  ],
               },
-            ],
-          },
-        ],
-        order: [
-          ["tanggal", "ASC"],
-          ["waktu", "ASC"],
-        ],
+          ],
+          order: [
+              ["start_date", "ASC"],
+              ["start_time", "ASC"],
+          ],
       });
 
-      //formay data jadwal
-      const modifiedScheduleData = scheduleData.map((schedule) => {
-        const {
-          id,
-          packagetryout_id,
-          title,
-          tanggal,
-          waktu,
-          createdAt,
-          updatedAt,
-          Package_tryout,
-        } = schedule.dataValues;
+          const modifiedScheduleData = scheduleData.map((schedule) => {
+              const {
+                  id,
+                  packagetryout_id,
+                  title,
+                  start_date,
+                  end_date,
+                  start_time,
+                  end_time,
+                  createdAt,
+                  updatedAt,
+                  Package_tryout,
+              } = schedule.dataValues;
 
-        const startDateTime = moment(
-          `${tanggal} ${waktu}`,
-          "YYYY-MM-DD HH:mm:ss"
-        );
-        const currentTime = moment();
+              const currentTime = moment();
+              const startDateTime = moment(
+                  `${start_date} ${start_time}`,
+                  "YYYY-MM-DD HH:mm:ss"
+              );
+              const endDateTime = moment(
+                  `${end_date} ${end_time}`,
+                  "YYYY-MM-DD HH:mm:ss"
+              );
 
-        let status;
-        let timeLeftMinutes = startDateTime.diff(currentTime, "minutes");
+              let status;
+              if (currentTime.isBefore(startDateTime)) {
+                  const timeLeftMinutes = startDateTime.diff(currentTime, "minutes");
+                  status = `Tryout akan dimulai dalam ${timeLeftMinutes} menit`;
+              } else if (currentTime.isBetween(startDateTime, endDateTime)) {
+                  status = `Tryout sedang berlangsung`;
+              } else {
+                  status = `Tryout sudah selesai`;
+              }
 
-        if (timeLeftMinutes > 0) {
-          status = `Tryout akan dimulai dalam ${timeLeftMinutes} menit`;
-        } else if (timeLeftMinutes <= 0 && timeLeftMinutes > -120) {
-          status = `Tryout sedang berlangsung`;
-        } else {
-          status = `Tryout sudah selesai`;
-        }
+              return {
+                  id: id,
+                  scheduleTitle: title,
+                  packagetryout_id: packagetryout_id,
+                  packageTryoutTitle: Package_tryout?.title ?? "Tidak Ditemukan",
+                  typePackage: Package_tryout?.Type_package?.name ?? "Semua Tipe",
+                  start_date: moment(start_date).format("D MMMM YYYY"),
+                  end_date: moment(end_date).format("D MMMM YYYY"),
+                  start_time: start_time,
+                  end_time: end_time,
+                  status: status,
+                  createdAt: moment(createdAt).format("D MMMM YYYY HH:mm:ss"),
+                  updatedAt: moment(updatedAt).format("D MMMM YYYY HH:mm:ss"),
+              };
+          });
 
-        return {
-          id: id,
-          scheduleTitle: title,
-          packagetryout_id: packagetryout_id,
-          packageTryoutTitle: Package_tryout?.title ?? "Tidak Ditemukan",
-          typePackage: Package_tryout?.Type_package?.name ?? "Semua Tipe", // Menampilkan tipe paket
-          tanggal: moment(tanggal).format("D MMMM YYYY"),
-          waktu: waktu,
-          status: status,
-          timeLeftMinutes: timeLeftMinutes > 0 ? timeLeftMinutes : 0,
-          createdAt: moment(createdAt).format("D MMMM YYYY HH:mm:ss"),
-          updatedAt: moment(updatedAt).format("D MMMM YYYY HH:mm:ss"),
-        };
-      });
-
-      res.status(200).json({
-        status: 200,
-        message: "Success get schedule tryout",
-        data: modifiedScheduleData,
-      });
-    } catch (err) {
-      res.status(500).json({
-        status: 500,
-        message: "Internal server error",
-        error: err.message,
-      });
-      console.error(err);
-    }
+          res.status(200).json({
+              status: 200,
+              message: "Success get schedule tryout",
+              data: modifiedScheduleData,
+          });
+      } catch (err) {
+          res.status(500).json({
+              status: 500,
+              message: "Internal server error",
+              error: err.message,
+          });
+          console.error(err);
+      }
   },
 
   //get data schedule berdasarkan id
@@ -656,4 +722,5 @@ module.exports = {
       });
     }
   },
+  
 };
