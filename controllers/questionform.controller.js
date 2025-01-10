@@ -97,6 +97,8 @@ module.exports = {
                 continue;
             }
 
+            console.log("Available files: ", req.files.map((file) => file.fieldname));
+
             let fieldProcessed = input.field; // Default field as string
             const fieldImageFile = req.files.find((f) => f.fieldname === fieldProcessed);
 
@@ -120,6 +122,31 @@ module.exports = {
                 }
             }
 
+            let discussionProcessed = input.discussion; 
+            const discussionImageFile = req.files.find((f) => f.fieldname === discussionProcessed);
+
+            console.log("DISCUSSION: ", discussionImageFile);
+
+            if (discussionImageFile) {
+                try {
+                    const uploadParams = {
+                        Bucket: process.env.AWS_BUCKET,
+                        Key: `${process.env.PATH_AWS}/discussions/${new Date().getTime()}-${discussionImageFile.originalname}`,
+                        Body: discussionImageFile.buffer,
+                        ACL: "public-read",
+                        ContentType: discussionImageFile.mimetype,
+                    };
+                    const command = new PutObjectCommand(uploadParams);
+                    await s3Client.send(command);
+
+                    discussionProcessed = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
+                } catch (error) {
+                    console.error("Failed to upload discussion image:", error);
+                    errors.push({ input, errors: ["Failed to upload discussion image to AWS."] });
+                    continue;
+                }
+            }
+
             let correctAnswerProcessed = null;
             if (Array.isArray(input.correct_answer)) {
                 correctAnswerProcessed = input.correct_answer.map((answer) => ({
@@ -135,42 +162,77 @@ module.exports = {
             }
 
             let datajsonProcessed = [];
-            if (input.datajson && Array.isArray(input.datajson)) {
-                for (let item of input.datajson) {
-                    const file = req.files.find((f) => f.fieldname === `image_${item.id}`);
-                    if (file) {
-                        try {
-                            const uploadParams = {
-                                Bucket: process.env.AWS_BUCKET,
-                                Key: `${process.env.PATH_AWS}/options/${new Date().getTime()}-${file.originalname}`,
-                                Body: file.buffer,
-                                ACL: "public-read",
-                                ContentType: file.mimetype,
-                            };
-                            const command = new PutObjectCommand(uploadParams);
-                            await s3Client.send(command);
+            // if (input.datajson && Array.isArray(input.datajson)) {
+            //     for (let item of input.datajson) {
+            //         const file = req.files.find((f) => f.fieldname === `image_${item.id}`);
+            //         if (file) {
+            //             try {
+            //                 const uploadParams = {
+            //                     Bucket: process.env.AWS_BUCKET,
+            //                     Key: `${process.env.PATH_AWS}/options/${new Date().getTime()}-${file.originalname}`,
+            //                     Body: file.buffer,
+            //                     ACL: "public-read",
+            //                     ContentType: file.mimetype,
+            //                 };
+            //                 const command = new PutObjectCommand(uploadParams);
+            //                 await s3Client.send(command);
 
-                            const imageUrl = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
-                            datajsonProcessed.push({ id: item.id, key: imageUrl });
-                        } catch (error) {
-                            errors.push({ input, errors: [`Failed to upload image for id ${item.id}.`] });
-                            continue;
-                        }
-                    } else {
-                        datajsonProcessed.push({ id: item.id, key: item.key });
-                    }
-                }
-            }
+            //                 const imageUrl = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
+            //                 datajsonProcessed.push({ id: item.id, key: imageUrl });
+            //             } catch (error) {
+            //                 errors.push({ input, errors: [`Failed to upload image for id ${item.id}.`] });
+            //                 continue;
+            //             }
+            //         } else {
+            //             datajsonProcessed.push({ id: item.id, key: item.key });
+            //         }
+            //     }
+            // }
+
+            if (input.datajson && Array.isArray(input.datajson)) {
+              for (let item of input.datajson) {
+                  if (req.files && item.key.startsWith("image_")) {
+                      // Jika key adalah "image_X", cari file dengan fieldname yang sesuai
+                      const file = req.files.find((f) => f.fieldname === item.key);
+                      if (file) {
+                          try {
+                              const uploadParams = {
+                                  Bucket: process.env.AWS_BUCKET,
+                                  Key: `${process.env.PATH_AWS}/options/${new Date().getTime()}-${file.originalname}`,
+                                  Body: file.buffer,
+                                  ACL: "public-read",
+                                  ContentType: file.mimetype,
+                              };
+                              const command = new PutObjectCommand(uploadParams);
+                              await s3Client.send(command);
+          
+                              const imageUrl = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
+                              datajsonProcessed.push({ id: item.id, key: imageUrl });
+                          } catch (error) {
+                              errors.push({ input, errors: [`Failed to upload image for id ${item.id}.`] });
+                              continue;
+                          }
+                      } else {
+                          // Jika file tidak ditemukan, tambahkan error
+                          errors.push({ input, errors: [`File not found for key: ${item.key}.`] });
+                          continue;
+                      }
+                  } else {
+                      // Jika key adalah string biasa, gunakan langsung
+                      datajsonProcessed.push({ id: item.id, key: item.key });
+                  }
+              }
+          }
 
             const questionFormCreateObj = {
-                field: fieldProcessed,
-                tipedata: input.tipedata,
-                status: input.status !== undefined ? Boolean(input.status) : true,
-                correct_answer: correctAnswerProcessed,
-                discussion: input.discussion,
-                datajson: datajsonProcessed,
-                banksoal_id: createdBankSoal.id,
-            };
+              field: fieldProcessed,
+              tipedata: input.tipedata,
+              status: input.status !== undefined ? Boolean(input.status) : true,
+              correct_answer: correctAnswerProcessed,
+              discussion: discussionProcessed, // Gunakan hasil proses discussion
+              datajson: datajsonProcessed,
+              banksoal_id: createdBankSoal.id,
+          };
 
             const validate = v.validate(questionFormCreateObj, schema);
             if (validate.length > 0) {
