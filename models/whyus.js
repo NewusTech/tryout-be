@@ -10,6 +10,7 @@ module.exports = (sequelize, DataTypes) => {
   Why_us.init({
     title: DataTypes.STRING,
     description: DataTypes.STRING,
+    image: DataTypes.STRING,
   }, {
     sequelize,
     modelName: 'Why_us',

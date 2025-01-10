@@ -5,6 +5,7 @@ const v = new Validator();
 const { Op, Sequelize } = require('sequelize');
 const { generatePagination } = require('../pagination/pagination');
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const { options } = require('../routes/packageinformation.route');
 
 const s3Client = new S3Client({
     region: process.env.AWS_DEFAULT_REGION,
@@ -21,14 +22,37 @@ module.exports = {
     createWhyUs: async (req, res) => {
         try {
             const schema = {
-                title: { type: "string", min: 3 },
-                description: { type: "string", min: 3 },
+                title: { type: "string", min: 3, optional: true },
+                description: { type: "string", min: 3, optional: true },
+                image: { type: "string", optional: true }
+            }
+
+            let imageKey;
+    
+            // upload image jika ada
+            if (req.files?.image) {
+                const timestamp = new Date().getTime();
+                const uniqueFileName = `${timestamp}-${req.files.image[0].originalname}`;
+    
+                const uploadParams = {
+                    Bucket: process.env.AWS_BUCKET,
+                    Key: `${process.env.PATH_AWS}/why_us/${uniqueFileName}`,
+                    Body: req.files.image[0].buffer,
+                    ACL: 'public-read',
+                    ContentType: req.files.image[0].mimetype
+                };
+    
+                const command = new PutObjectCommand(uploadParams);
+                await s3Client.send(command);
+    
+                imageKey = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
             }
     
             // Buat object why us
             let WhyUsCreateObj = {
                 title: req.body.title,
                 description: req.body.description,
+                image: imageKey
             }
     
             const validate = v.validate(WhyUsCreateObj, schema);
@@ -46,7 +70,7 @@ module.exports = {
             console.log(err);
         }
     },
-    
+
     //mendapatkan semua data why us
     getWhyUs: async (req, res) => {
         try {
@@ -135,13 +159,35 @@ module.exports = {
             const schema = {
                 title: { type: "string", min: 3, optional: true },
                 description: { type: "string", min: 3, optional: true },
+                why_us: { type: "string", optional: true },
             };
     
+            let imageKey;
+    
+            // upload image jika ada
+            if (req.files?.image) {
+                const timestamp = new Date().getTime();
+                const uniqueFileName = `${timestamp}-${req.files.image[0].originalname}`;
+    
+                const uploadParams = {
+                    Bucket: process.env.AWS_BUCKET,
+                    Key: `${process.env.PATH_AWS}/why_us/${uniqueFileName}`,
+                    Body: req.files.image[0].buffer,
+                    ACL: 'public-read',
+                    ContentType: req.files.image[0].mimetype
+                };
+    
+                const command = new PutObjectCommand(uploadParams);
+                await s3Client.send(command);
+    
+                imageKey = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
+            }
     
             // Buat object untuk update why us
             let WhyUsUpdateObj = {
                 title: req.body.title,
                 description: req.body.description,
+                image: imageKey
             };
     
             // Validasi menggunakan module fastest-validator
