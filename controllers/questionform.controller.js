@@ -497,8 +497,13 @@ module.exports = {
         })
       );
   
-      // Urutkan berdasarkan type_question_id terlebih dahulu
-      Question_forms.sort((a, b) => a.type_question_id - b.type_question_id);
+      // Urutkan berdasarkan type_question_id dan id question_form
+      Question_forms.sort((a, b) => {
+        if (a.type_question_id === b.type_question_id) {
+          return a.id - b.id; // Jika type_question_id sama, urutkan berdasarkan id
+        }
+        return a.type_question_id - b.type_question_id; // Urutkan berdasarkan type_question_id
+      });
   
       const response = {
         code: 200,
@@ -529,6 +534,7 @@ module.exports = {
       });
     }
   },
+  
   
 
   //mendapatkan semua data question form
