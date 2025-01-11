@@ -263,10 +263,142 @@ module.exports = {
   },
 
   //mendapatkan bank soal by package
+  // getFormByPackage: async (req, res) => {
+  //   const { packagetryout_id } = req.params;
+  //   const userinfo_id = req.user.role === "User" ? req.user.userId : null;
+
+  //   try {
+  //     if (!userinfo_id) {
+  //       return res.status(403).json({
+  //         code: 403,
+  //         message: "Forbidden: Only users can access this resource",
+  //         data: null,
+  //       });
+  //     }
+
+  //     // Cek sesi aktif
+  //     const latestSession = await Question_form_num.findOne({
+  //       where: { userinfo_id, packagetryout_id },
+  //       order: [["attempt", "DESC"]],
+  //       attributes: ["id", "start_time", "end_time", "status", "attempt"],
+  //     });
+
+  //     const now = new Date();
+
+  //     if (!latestSession || now > new Date(latestSession.end_time)) {
+  //       return res.status(403).json({
+  //         code: 403,
+  //         message: "No active session. Please start the tryout.",
+  //       });
+  //     }
+
+  //     // Ambil data Package_tryout
+  //     const data = await Package_tryout.findOne({
+  //       where: { id: packagetryout_id },
+  //       attributes: ["id", "title", "slug"],
+  //       include: [
+  //         {
+  //           model: Bank_package,
+  //           attributes: ["id", "packagetryout_id", "banksoal_id"],
+  //           include: [
+  //             {
+  //               model: Bank_soal,
+  //               attributes: ["id", "title", "typequestion_id"],
+  //               include: [
+  //                 {
+  //                   model: Type_question,
+  //                   attributes: ["name"],
+  //                 },
+  //                 {
+  //                   model: Question_form,
+  //                   attributes: ["id", "field", "tipedata", "datajson"],
+  //                 },
+  //               ],
+  //             },
+  //           ],
+  //         },
+  //       ],
+  //     });
+
+  //     if (!data) {
+  //       return res.status(404).json({
+  //         code: 404,
+  //         message: "Package tryout not found",
+  //         data: null,
+  //       });
+  //     }
+
+  //     // Ambil jawaban pengguna untuk sesi aktif
+  //     const questionUser = await Question_form_input.findAll({
+  //       where: { questionformnum_id: latestSession.id },
+  //       attributes: ["data", "questionform_id"],
+  //     });
+
+  //     let total_filled = 0;
+  //     let total_unfilled = 0;
+
+  //     // Gabungkan data soal dengan jawaban pengguna
+  //     const response = {
+  //       code: 200,
+  //       message: "Success get question form with user answers",
+  //       data: {
+  //         id: data.id,
+  //         title: data.title,
+  //         slug: data.slug,
+  //         attempt: latestSession.attempt, // Nomor percobaan sesi
+  //         start_time: latestSession.start_time,
+  //         end_time: latestSession.end_time,
+  //         Question_forms: data.Bank_packages.flatMap((bankPackage) =>
+  //           bankPackage.Bank_soal.Question_forms.sort(
+  //             (a, b) => a.id - b.id
+  //           ).map((questionForm) => {
+  //             const userAnswer = questionUser.find(
+  //               (answer) => answer.questionform_id === questionForm.id
+  //             );
+  //             const isAnswered = userAnswer ? true : false;
+
+  //             if (isAnswered) {
+  //               total_filled++;
+  //             } else {
+  //               total_unfilled++;
+  //             }
+
+  //             return {
+  //               id: questionForm.id,
+  //               type_question_id: bankPackage.Bank_soal.typequestion_id,
+  //               type_question_name: bankPackage.Bank_soal.Type_question.name,
+  //               bank_soal_id: bankPackage.Bank_soal.id,
+  //               bank_soal_name: bankPackage.Bank_soal.title,
+  //               field: questionForm.field,
+  //               tipedata: questionForm.tipedata,
+  //               datajson: questionForm.datajson,
+  //               answer: userAnswer ? userAnswer.data : null,
+  //             };
+  //           })
+  //         ),
+  //         status: {
+  //           total_filled,
+  //           total_unfilled,
+  //         },
+  //       },
+  //     };
+
+  //     return res.status(200).json(response);
+  //   } catch (error) {
+  //     console.error(error);
+
+  //     return res.status(500).json({
+  //       code: 500,
+  //       message: "Internal server error",
+  //       error: error.message,
+  //     });
+  //   }
+  // },
+
   getFormByPackage: async (req, res) => {
     const { packagetryout_id } = req.params;
     const userinfo_id = req.user.role === "User" ? req.user.userId : null;
-
+  
     try {
       if (!userinfo_id) {
         return res.status(403).json({
@@ -275,23 +407,23 @@ module.exports = {
           data: null,
         });
       }
-
+  
       // Cek sesi aktif
       const latestSession = await Question_form_num.findOne({
         where: { userinfo_id, packagetryout_id },
         order: [["attempt", "DESC"]],
         attributes: ["id", "start_time", "end_time", "status", "attempt"],
       });
-
+  
       const now = new Date();
-
+  
       if (!latestSession || now > new Date(latestSession.end_time)) {
         return res.status(403).json({
           code: 403,
           message: "No active session. Please start the tryout.",
         });
       }
-
+  
       // Ambil data Package_tryout
       const data = await Package_tryout.findOne({
         where: { id: packagetryout_id },
@@ -319,7 +451,7 @@ module.exports = {
           },
         ],
       });
-
+  
       if (!data) {
         return res.status(404).json({
           code: 404,
@@ -327,17 +459,47 @@ module.exports = {
           data: null,
         });
       }
-
+  
       // Ambil jawaban pengguna untuk sesi aktif
       const questionUser = await Question_form_input.findAll({
         where: { questionformnum_id: latestSession.id },
         attributes: ["data", "questionform_id"],
       });
-
+  
       let total_filled = 0;
       let total_unfilled = 0;
-
+  
       // Gabungkan data soal dengan jawaban pengguna
+      const Question_forms = data.Bank_packages.flatMap((bankPackage) =>
+        bankPackage.Bank_soal.Question_forms.map((questionForm) => {
+          const userAnswer = questionUser.find(
+            (answer) => answer.questionform_id === questionForm.id
+          );
+          const isAnswered = !!userAnswer;
+  
+          if (isAnswered) {
+            total_filled++;
+          } else {
+            total_unfilled++;
+          }
+  
+          return {
+            id: questionForm.id,
+            type_question_id: bankPackage.Bank_soal.typequestion_id,
+            type_question_name: bankPackage.Bank_soal.Type_question.name,
+            bank_soal_id: bankPackage.Bank_soal.id,
+            bank_soal_name: bankPackage.Bank_soal.title,
+            field: questionForm.field,
+            tipedata: questionForm.tipedata,
+            datajson: questionForm.datajson,
+            answer: userAnswer ? userAnswer.data : null,
+          };
+        })
+      );
+  
+      // Urutkan berdasarkan type_question_id terlebih dahulu
+      Question_forms.sort((a, b) => a.type_question_id - b.type_question_id);
+  
       const response = {
         code: 200,
         message: "Success get question form with user answers",
@@ -348,45 +510,18 @@ module.exports = {
           attempt: latestSession.attempt, // Nomor percobaan sesi
           start_time: latestSession.start_time,
           end_time: latestSession.end_time,
-          Question_forms: data.Bank_packages.flatMap((bankPackage) =>
-            bankPackage.Bank_soal.Question_forms.sort(
-              (a, b) => a.id - b.id
-            ).map((questionForm) => {
-              const userAnswer = questionUser.find(
-                (answer) => answer.questionform_id === questionForm.id
-              );
-              const isAnswered = userAnswer ? true : false;
-
-              if (isAnswered) {
-                total_filled++;
-              } else {
-                total_unfilled++;
-              }
-
-              return {
-                id: questionForm.id,
-                type_question_id: bankPackage.Bank_soal.typequestion_id,
-                type_question_name: bankPackage.Bank_soal.Type_question.name,
-                bank_soal_id: bankPackage.Bank_soal.id,
-                bank_soal_name: bankPackage.Bank_soal.title,
-                field: questionForm.field,
-                tipedata: questionForm.tipedata,
-                datajson: questionForm.datajson,
-                answer: userAnswer ? userAnswer.data : null,
-              };
-            })
-          ),
+          Question_forms,
           status: {
             total_filled,
             total_unfilled,
           },
         },
       };
-
+  
       return res.status(200).json(response);
     } catch (error) {
       console.error(error);
-
+  
       return res.status(500).json({
         code: 500,
         message: "Internal server error",
@@ -394,6 +529,7 @@ module.exports = {
       });
     }
   },
+  
 
   //mendapatkan semua data question form
   getQuestionForm: async (req, res) => {
