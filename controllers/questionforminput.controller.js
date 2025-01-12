@@ -1101,14 +1101,28 @@ module.exports = {
 
             let isLolos = 'Lulus';
             Object.values(typeQuestionSummary).forEach((summary) => {
-                const requiredScore = scoreMinimums[summary.typeName] ?? 0;
-                if (summary.totalScore < requiredScore) {
-                    summary.status = 'Tidak Lulus';
-                    isLolos = 'Tidak Lulus';
+              const requiredScore = scoreMinimums[summary.typeName] ?? 0;
+              if (summary.totalScore < requiredScore) {
+                summary.status = 'Tidak Lulus';
+                if (isLolos !== 'Tidak Lulus') {
+                  isLolos = 'Tidak Lulus'; // Jika salah satu kategori tidak lulus, ubah status
+                  }
                 } else {
-                    summary.status = 'Lulus';
+                  summary.status = 'Lulus';
                 }
-            });
+              });
+
+
+            // let isLolos = 'Lulus';
+            // Object.values(typeQuestionSummary).forEach((summary) => {
+            //     const requiredScore = scoreMinimums[summary.typeName] ?? 0;
+            //     if (summary.totalScore < requiredScore) {
+            //         summary.status = 'Tidak Lulus';
+            //         isLolos = 'Tidak Lulus';
+            //     } else {
+            //         summary.status = 'Lulus';
+            //     }
+            // });
 
             const startTime = new Date(data.start_time);
             const endTime = new Date(data.end_time);
@@ -1167,7 +1181,7 @@ module.exports = {
             error: err.message,
         });
     }
-},
+  },
   
   //get history tryout per id question_num
   getHistoryById: async (req, res) => {
