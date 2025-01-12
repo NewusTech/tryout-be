@@ -1097,16 +1097,21 @@ module.exports = {
               });
           });
       
+          // Periksa kelulusan tiap kategori
           let isLolos = 'Lulus'; // Default status
           Object.values(typeQuestionSummary).forEach((summary) => {
               const requiredScore = scoreMinimums[summary.typeName] ?? 0;
+      
+              // Tentukan status kategori (Lulus / Tidak Lulus)
               summary.status = summary.totalScore >= requiredScore ? 'Lulus' : 'Tidak Lulus';
       
+              // Jika salah satu kategori tidak lulus, status keseluruhan jadi "Tidak Lulus"
               if (summary.status === 'Tidak Lulus') {
                   isLolos = 'Tidak Lulus';
               }
           });
       
+          // Format hasil akhir
           const startTime = new Date(data.start_time);
           const endTime = new Date(data.end_time);
           const durationMs = endTime - startTime;
@@ -1118,18 +1123,18 @@ module.exports = {
               name: data.User_info?.name,
               skor: parseInt(data.skor),
               sertifikat: data.sertifikat,
-              status: isLolos,
+              status: isLolos, // Lulus / Tidak Lulus
               duration: durationFormatted,
               packagetryout_id: data?.packagetryout_id,
               package_name: data?.Package_tryout ? data?.Package_tryout?.title : null,
               typepackage_id:
-                      data?.Package_tryout && data?.Package_tryout?.Type_package
-                          ? data?.Package_tryout?.Type_package.id
-                          : null,
+                  data?.Package_tryout && data?.Package_tryout?.Type_package
+                      ? data?.Package_tryout?.Type_package.id
+                      : null,
               typepackage_name:
-                      data?.Package_tryout && data?.Package_tryout?.Type_package
-                          ? data?.Package_tryout?.Type_package.name
-                          : null,
+                  data?.Package_tryout && data?.Package_tryout?.Type_package
+                      ? data?.Package_tryout?.Type_package.name
+                      : null,
               createdAt: data?.createdAt,
               updatedAt: data?.updatedAt,
           };
@@ -1217,8 +1222,7 @@ module.exports = {
         //           }
         //         } else {
         //           summary.status = 'Lulus';
-        //         }
-        //       });
+        //         }});
 
 
         //     // let isLolos = 'Lulus';
