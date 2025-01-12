@@ -1159,8 +1159,10 @@ module.exports = {
             data.rank = index + 1;  // Ranking dimulai dari 1
         });
 
+        const paginatedData = formattedData.slice(offset, offset + limit);
+
         const pagination = generatePagination(
-            totalCount,
+            formattedData.length, // Total data
             page,
             limit,
             `/api/user/history/tryout/${packagetryout_id}`
@@ -1169,9 +1171,23 @@ module.exports = {
         res.status(200).json({
             status: 200,
             message: 'Success get details for package tryout',
-            data: formattedData,
-            pagination: pagination,
+            data: paginatedData,
+            pagination,
         });
+
+        // const pagination = generatePagination(
+        //     totalCount,
+        //     page,
+        //     limit,
+        //     `/api/user/history/tryout/${packagetryout_id}`
+        // );
+
+        // res.status(200).json({
+        //     status: 200,
+        //     message: 'Success get details for package tryout',
+        //     data: formattedData,
+        //     pagination: pagination,
+        // });
     } catch (err) {
         console.error(err);
         res.status(500).json({
