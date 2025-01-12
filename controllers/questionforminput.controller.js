@@ -1029,128 +1029,236 @@ module.exports = {
         ]);
 
         const scoreMinimums = {
-            'TWK': 65,
-            'TIU': 80,
-            'TKP': 166,
-        };
-
-        const formattedData = history.map((data) => {
-            const typeQuestionSummary = {};
-            const packageTryout = data.Package_tryout;
-            const userAnswers = {};
-
-            data.Question_form_inputs?.forEach((input) => {
-                userAnswers[input.questionform_id] = input.data;
-            });
-
-            packageTryout.Bank_packages.forEach((bankPackage) => {
-                const bankSoals = Array.isArray(bankPackage.Bank_soal) 
-                    ? bankPackage.Bank_soal 
-                    : [bankPackage.Bank_soal].filter(Boolean);
-                
-                bankSoals.forEach((bankSoal) => {
-                    const typeQuestionId = bankSoal.typequestion_id;
-                    const typeName = bankSoal.Type_question?.name || 'Unknown';
-
-                    if (!typeQuestionSummary[typeQuestionId]) {
-                        typeQuestionSummary[typeQuestionId] = {
-                            typeName: typeName,
-                            totalQuestions: 0,
-                            totalCorrect: 0,
-                            totalIncorrect: 0,
-                            totalUnanswered: 0,
-                            totalScore: 0,
-                        };
-                    }
-
-                    bankSoal.Question_forms.forEach((questionForm) => {
-                        const correctAnswer = questionForm.correct_answer;
-                        const userAnswer = userAnswers[questionForm.id];
-
-                        let isCorrect = false;
-                        let points = 0;
-
-                        if (typeof correctAnswer === 'string' || typeof correctAnswer === 'number') {
-                            isCorrect = String(correctAnswer) === String(userAnswer);
-                            points = isCorrect ? 5 : 0;
-                        } else if (Array.isArray(correctAnswer)) {
-                            const correctObject = correctAnswer.find(
-                                (item) => String(item.id) === String(userAnswer)
-                            );
-                            if (correctObject) {
-                                isCorrect = true;
-                                points = correctObject.point || 0;
-                            }
-                        }
-
-                        typeQuestionSummary[typeQuestionId].totalQuestions += 1;
-
-                        if (userAnswer !== null && userAnswer !== undefined) {
-                            if (isCorrect) {
-                                typeQuestionSummary[typeQuestionId].totalCorrect += 1;
-                                typeQuestionSummary[typeQuestionId].totalScore += points;
-                            } else {
-                                typeQuestionSummary[typeQuestionId].totalIncorrect += 1;
-                            }
-                        } else {
-                            typeQuestionSummary[typeQuestionId].totalUnanswered += 1;
-                        }
-                    });
-                });
-            });
-
-            let isLolos = 'Lulus';
-            Object.values(typeQuestionSummary).forEach((summary) => {
-              const requiredScore = scoreMinimums[summary.typeName] ?? 0;
-              if (summary.totalScore < requiredScore) {
-                summary.status = 'Tidak Lulus';
-                if (isLolos !== 'Tidak Lulus') {
-                  isLolos = 'Tidak Lulus'; // Jika salah satu kategori tidak lulus, ubah status
+          'TWK': 65,
+          'TIU': 80,
+          'TKP': 166,
+      };
+      
+      const formattedData = history.map((data) => {
+          const typeQuestionSummary = {};
+          const packageTryout = data.Package_tryout;
+          const userAnswers = {};
+      
+          data.Question_form_inputs?.forEach((input) => {
+              userAnswers[input.questionform_id] = input.data;
+          });
+      
+          packageTryout.Bank_packages.forEach((bankPackage) => {
+              const bankSoals = bankPackage.Bank_soals || [];
+              
+              bankSoals.forEach((bankSoal) => {
+                  const typeQuestionId = bankSoal.Type_question?.id || 'Unknown';
+                  const typeName = bankSoal.Type_question?.name || 'Unknown';
+      
+                  if (!typeQuestionSummary[typeQuestionId]) {
+                      typeQuestionSummary[typeQuestionId] = {
+                          typeName: typeName,
+                          totalQuestions: 0,
+                          totalCorrect: 0,
+                          totalIncorrect: 0,
+                          totalUnanswered: 0,
+                          totalScore: 0,
+                      };
                   }
-                } else {
-                  summary.status = 'Lulus';
-                }
+      
+                  bankSoal.Question_forms.forEach((questionForm) => {
+                      const correctAnswer = questionForm.correct_answer;
+                      const userAnswer = userAnswers[questionForm.id];
+      
+                      let isCorrect = false;
+                      let points = 0;
+      
+                      if (typeof correctAnswer === 'string' || typeof correctAnswer === 'number') {
+                          isCorrect = String(correctAnswer) === String(userAnswer);
+                          points = isCorrect ? 5 : 0;
+                      } else if (Array.isArray(correctAnswer)) {
+                          const correctObject = correctAnswer.find(
+                              (item) => String(item.id) === String(userAnswer)
+                          );
+                          if (correctObject) {
+                              isCorrect = true;
+                              points = correctObject.point || 0;
+                          }
+                      }
+      
+                      typeQuestionSummary[typeQuestionId].totalQuestions += 1;
+      
+                      if (userAnswer !== null && userAnswer !== undefined) {
+                          if (isCorrect) {
+                              typeQuestionSummary[typeQuestionId].totalCorrect += 1;
+                              typeQuestionSummary[typeQuestionId].totalScore += points;
+                          } else {
+                              typeQuestionSummary[typeQuestionId].totalIncorrect += 1;
+                          }
+                      } else {
+                          typeQuestionSummary[typeQuestionId].totalUnanswered += 1;
+                      }
+                  });
               });
-
-
-            // let isLolos = 'Lulus';
-            // Object.values(typeQuestionSummary).forEach((summary) => {
-            //     const requiredScore = scoreMinimums[summary.typeName] ?? 0;
-            //     if (summary.totalScore < requiredScore) {
-            //         summary.status = 'Tidak Lulus';
-            //         isLolos = 'Tidak Lulus';
-            //     } else {
-            //         summary.status = 'Lulus';
-            //     }
-            // });
-
-            const startTime = new Date(data.start_time);
-            const endTime = new Date(data.end_time);
-            const durationMs = endTime - startTime;
-            const durationFormatted = moment.utc(durationMs).format('HH:mm:ss');
-
-            return {
-                id: data.id,
-                userinfo_id: data.userinfo_id,
-                name: data.User_info?.name,
-                skor: parseInt(data.skor),
-                sertifikat: data.sertifikat,
-                status: isLolos,
-                duration: durationFormatted,
-                packagetryout_id: data?.packagetryout_id,
-                package_name: data?.Package_tryout ? data?.Package_tryout?.title : null,
-                typepackage_id:
-                        data?.Package_tryout && data?.Package_tryout?.Type_package
+          });
+      
+          let isLolos = 'Lulus'; // Default status
+          Object.values(typeQuestionSummary).forEach((summary) => {
+              const requiredScore = scoreMinimums[summary.typeName] ?? 0;
+              summary.status = summary.totalScore >= requiredScore ? 'Lulus' : 'Tidak Lulus';
+      
+              if (summary.status === 'Tidak Lulus') {
+                  isLolos = 'Tidak Lulus';
+              }
+          });
+      
+          const startTime = new Date(data.start_time);
+          const endTime = new Date(data.end_time);
+          const durationMs = endTime - startTime;
+          const durationFormatted = moment.utc(durationMs).format('HH:mm:ss');
+      
+          return {
+              id: data.id,
+              userinfo_id: data.userinfo_id,
+              name: data.User_info?.name,
+              skor: parseInt(data.skor),
+              sertifikat: data.sertifikat,
+              status: isLolos,
+              duration: durationFormatted,
+              packagetryout_id: data?.packagetryout_id,
+              package_name: data?.Package_tryout ? data?.Package_tryout?.title : null,
+              typepackage_id:
+                      data?.Package_tryout && data?.Package_tryout?.Type_package
                           ? data?.Package_tryout?.Type_package.id
                           : null,
-                typepackage_name:
-                        data?.Package_tryout && data?.Package_tryout?.Type_package
+              typepackage_name:
+                      data?.Package_tryout && data?.Package_tryout?.Type_package
                           ? data?.Package_tryout?.Type_package.name
                           : null,
-                createdAt: data?.createdAt,
-                updatedAt: data?.updatedAt,
-            };
-        });
+              createdAt: data?.createdAt,
+              updatedAt: data?.updatedAt,
+          };
+      });
+      
+
+        // const scoreMinimums = {
+        //     'TWK': 65,
+        //     'TIU': 80,
+        //     'TKP': 166,
+        // };
+
+        // const formattedData = history.map((data) => {
+        //     const typeQuestionSummary = {};
+        //     const packageTryout = data.Package_tryout;
+        //     const userAnswers = {};
+
+        //     data.Question_form_inputs?.forEach((input) => {
+        //         userAnswers[input.questionform_id] = input.data;
+        //     });
+
+        //     packageTryout.Bank_packages.forEach((bankPackage) => {
+        //         const bankSoals = Array.isArray(bankPackage.Bank_soal) 
+        //             ? bankPackage.Bank_soal 
+        //             : [bankPackage.Bank_soal].filter(Boolean);
+                
+        //         bankSoals.forEach((bankSoal) => {
+        //             const typeQuestionId = bankSoal.typequestion_id;
+        //             const typeName = bankSoal.Type_question?.name || 'Unknown';
+
+        //             if (!typeQuestionSummary[typeQuestionId]) {
+        //                 typeQuestionSummary[typeQuestionId] = {
+        //                     typeName: typeName,
+        //                     totalQuestions: 0,
+        //                     totalCorrect: 0,
+        //                     totalIncorrect: 0,
+        //                     totalUnanswered: 0,
+        //                     totalScore: 0,
+        //                 };
+        //             }
+
+        //             bankSoal.Question_forms.forEach((questionForm) => {
+        //                 const correctAnswer = questionForm.correct_answer;
+        //                 const userAnswer = userAnswers[questionForm.id];
+
+        //                 let isCorrect = false;
+        //                 let points = 0;
+
+        //                 if (typeof correctAnswer === 'string' || typeof correctAnswer === 'number') {
+        //                     isCorrect = String(correctAnswer) === String(userAnswer);
+        //                     points = isCorrect ? 5 : 0;
+        //                 } else if (Array.isArray(correctAnswer)) {
+        //                     const correctObject = correctAnswer.find(
+        //                         (item) => String(item.id) === String(userAnswer)
+        //                     );
+        //                     if (correctObject) {
+        //                         isCorrect = true;
+        //                         points = correctObject.point || 0;
+        //                     }
+        //                 }
+
+        //                 typeQuestionSummary[typeQuestionId].totalQuestions += 1;
+
+        //                 if (userAnswer !== null && userAnswer !== undefined) {
+        //                     if (isCorrect) {
+        //                         typeQuestionSummary[typeQuestionId].totalCorrect += 1;
+        //                         typeQuestionSummary[typeQuestionId].totalScore += points;
+        //                     } else {
+        //                         typeQuestionSummary[typeQuestionId].totalIncorrect += 1;
+        //                     }
+        //                 } else {
+        //                     typeQuestionSummary[typeQuestionId].totalUnanswered += 1;
+        //                 }
+        //             });
+        //         });
+        //     });
+
+        //     let isLolos = 'Lulus';
+        //     Object.values(typeQuestionSummary).forEach((summary) => {
+        //       const requiredScore = scoreMinimums[summary.typeName] ?? 0;
+        //       if (summary.totalScore < requiredScore) {
+        //         summary.status = 'Tidak Lulus';
+        //         if (isLolos !== 'Tidak Lulus') {
+        //           isLolos = 'Tidak Lulus'; // Jika salah satu kategori tidak lulus, ubah status
+        //           }
+        //         } else {
+        //           summary.status = 'Lulus';
+        //         }
+        //       });
+
+
+        //     // let isLolos = 'Lulus';
+        //     // Object.values(typeQuestionSummary).forEach((summary) => {
+        //     //     const requiredScore = scoreMinimums[summary.typeName] ?? 0;
+        //     //     if (summary.totalScore < requiredScore) {
+        //     //         summary.status = 'Tidak Lulus';
+        //     //         isLolos = 'Tidak Lulus';
+        //     //     } else {
+        //     //         summary.status = 'Lulus';
+        //     //     }
+        //     // });
+
+        //     const startTime = new Date(data.start_time);
+        //     const endTime = new Date(data.end_time);
+        //     const durationMs = endTime - startTime;
+        //     const durationFormatted = moment.utc(durationMs).format('HH:mm:ss');
+
+        //     return {
+        //         id: data.id,
+        //         userinfo_id: data.userinfo_id,
+        //         name: data.User_info?.name,
+        //         skor: parseInt(data.skor),
+        //         sertifikat: data.sertifikat,
+        //         status: isLolos,
+        //         duration: durationFormatted,
+        //         packagetryout_id: data?.packagetryout_id,
+        //         package_name: data?.Package_tryout ? data?.Package_tryout?.title : null,
+        //         typepackage_id:
+        //                 data?.Package_tryout && data?.Package_tryout?.Type_package
+        //                   ? data?.Package_tryout?.Type_package.id
+        //                   : null,
+        //         typepackage_name:
+        //                 data?.Package_tryout && data?.Package_tryout?.Type_package
+        //                   ? data?.Package_tryout?.Type_package.name
+        //                   : null,
+        //         createdAt: data?.createdAt,
+        //         updatedAt: data?.updatedAt,
+        //     };
+        // });
 
         // Mengurutkan data berdasarkan skor secara menurun
         formattedData.sort((a, b) => b.skor - a.skor);
