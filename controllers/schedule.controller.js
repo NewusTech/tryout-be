@@ -19,50 +19,13 @@ const fs = require("fs");
 const path = require("path");
 const { Op, Sequelize, where } = require("sequelize");
 const moment = require("moment-timezone");
+const puppeteer = require('puppeteer');
+const axios = require("axios");
 const { generatePagination } = require("../pagination/pagination");
 
 module.exports = {
 
   //input schedule user
-  // createSchedule: async (req, res) => {
-  //   try {
-  //     const { title, packagetryout_id, tanggal, waktu, isEvent } = req.body;
-
-  //     if (!title || !packagetryout_id || !tanggal || !waktu) {
-  //       return res.status(400).json(response(400, "All fields are required"));
-  //     }
-
-  //     //cek apakah paket_tryout_id ada
-  //     const paketTryout = await Package_tryout.findByPk(packagetryout_id);
-  //     if (!paketTryout) {
-  //       return res.status(404).json(response(404, "Paket tryout not found"));
-  //     }
-
-  //     //create schedule tryout baru
-  //     const schedule = await Schedule.create({
-  //       title,
-  //       packagetryout_id,
-  //       tanggal,
-  //       waktu,
-  //       isEvent: isEvent ?? 1,
-  //     });
-
-  //     //update isEvent di tabel Package_tryout
-  //     await paketTryout.update({
-  //       isEvent: 1
-  //     });
-
-  //     return res
-  //       .status(201)
-  //       .json(response(201, "Schedule created successfully", schedule));
-  //   } catch (error) {
-  //     console.error(error);
-  //     return res
-  //       .status(500)
-  //       .json(response(500, "Internal server error", error.message));
-  //   }
-  // },
-
   createSchedule: async (req, res) => {
     try {
         const {
@@ -409,12 +372,243 @@ module.exports = {
   },
 
   //get live monitoring tryout
+  // getLiveMonitoringScoring: async (req, res) => {
+  //   try {
+  //     const { schedule_id } = req.query;
+  //     const page = parseInt(req.query.page) || 1;
+  //     const limit = parseInt(req.query.limit) || 10;
+  //     const offset = (page - 1) * limit;
+
+  //     if (!schedule_id) {
+  //       return res.status(200).json({
+  //         code: 200,
+  //         message: "Schedule ID is not found",
+  //         scheduleTitle: null,
+  //         tryoutTitle: null,
+  //         data: null,
+  //       });
+  //     }
+
+  //     const schedule = await Schedule.findOne({
+  //       where: { id: schedule_id },
+  //       attributes: ["id", "title", "packagetryout_id"],
+  //       include: [
+  //         {
+  //           model: Package_tryout,
+  //           where: { isEvent: 1 },
+  //           attributes: ["title", "duration"],
+  //         },
+  //       ],
+  //     });
+
+  //     if (!schedule) {
+  //       return res.status(404).json({
+  //         code: 404,
+  //         message: "Schedule not found or Package is not an event",
+  //       });
+  //     }
+
+  //     const tryoutId = schedule.packagetryout_id;
+
+  //     //get semua jenis soal (TWK, TIU, TKP) dari database
+  //     const typeQuestions = await Type_question.findAll({
+  //       attributes: ["id", "name"],
+  //     });
+
+  //     const defaultQuestionTypes = typeQuestions.map((type) => ({
+  //       id: type.id,
+  //       name: type.name,
+  //     }));
+
+  //     const passingGrades = {
+  //       TWK: 65,
+  //       TIU: 80,
+  //       TKP: 166,
+  //     };
+
+  //     const participants = await Question_form_num.findAll({
+  //       where: {
+  //         packagetryout_id: tryoutId,
+  //       },
+  //       include: [
+  //         {
+  //           model: User_info,
+  //           attributes: ["id", "name"],
+  //         },
+  //       ],
+  //       limit,
+  //       offset: (page - 1) * limit,
+  //     });
+
+  //     if (!participants.length) {
+  //       return res.status(404).json({
+  //         code: 404,
+  //         message: "No participants found",
+  //       });
+  //     }
+
+  //     const currentTime = new Date();
+  //     const formattedParticipants = await Promise.all(
+  //       participants.map(async (participant) => {
+  //         const { User_info, start_time, end_time } = participant;
+
+  //         const endTime = new Date(end_time);
+  //         const timeRemainingMs = endTime - currentTime;
+  //         const timeRemaining =
+  //           timeRemainingMs > 0
+  //             ? new Date(timeRemainingMs).toISOString().substr(11, 8)
+  //             : "00:00:00";
+
+  //         //get jawaban peserta
+  //         const answers = await Question_form_input.findAll({
+  //           where: { questionformnum_id: participant.id },
+  //         });
+
+  //         //get semua soal yang tersedia di tryout
+  //         const bankPackages = await Bank_package.findAll({
+  //           where: { packagetryout_id: tryoutId },
+  //           include: [
+  //             {
+  //               model: Bank_soal,
+  //               include: [
+  //                 {
+  //                   model: Type_question,
+  //                   attributes: ["id", "name"],
+  //                 },
+  //                 {
+  //                   model: Question_form,
+  //                   attributes: ["id", "correct_answer"],
+  //                 },
+  //               ],
+  //             },
+  //           ],
+  //         });
+
+  //         const questionSummary = {};
+
+  //         //inisialisasi semua tipe soal dengan nilai 0
+  //         defaultQuestionTypes.forEach(({ id, name }) => {
+  //           questionSummary[id] = {
+  //             typeName: name,
+  //             totalQuestions: 0,
+  //             totalCorrect: 0,
+  //             totalIncorrect: 0,
+  //             totalUnanswered: 0,
+  //             totalScore: 0,
+  //           };
+  //         });
+
+  //         const userAnswers = {};
+  //         answers.forEach((answer) => {
+  //           userAnswers[answer.questionform_id] = answer.data;
+  //         });
+
+  //         bankPackages.forEach((bankPackage) => {
+  //           const { Bank_soal } = bankPackage;
+  //           const typeId = Bank_soal?.Type_question?.id;
+  //           const typeName = Bank_soal?.Type_question?.name;
+
+  //           if (!typeId || !typeName) return;
+
+  //           if (!questionSummary[typeId]) {
+  //             questionSummary[typeId] = {
+  //               typeName: typeName,
+  //               totalQuestions: 0,
+  //               totalCorrect: 0,
+  //               totalIncorrect: 0,
+  //               totalUnanswered: 0,
+  //               totalScore: 0,
+  //             };
+  //           }
+
+  //           Bank_soal.Question_forms.forEach((questionForm) => {
+  //             const correctAnswer = questionForm.correct_answer;
+  //             const userAnswer = userAnswers[questionForm.id];
+  //             let isCorrect = false;
+  //             let points = 0;
+            
+  //             // Perbandingan jika jawaban benar adalah string atau angka
+  //             if (typeof correctAnswer === "string" || typeof correctAnswer === "number") {
+  //               isCorrect = String(correctAnswer) === String(userAnswer);
+  //               points = isCorrect ? 5 : 0;
+  //             } 
+              
+  //             // Perbandingan jika jawaban benar adalah array (contoh: [{id: "A", point: 5}])
+  //             else if (Array.isArray(correctAnswer)) {
+  //               const correctObject = correctAnswer.find(
+  //                 (item) => String(item.id) === String(userAnswer)
+  //               );
+            
+  //               if (correctObject) {
+  //                 isCorrect = true;
+  //                 points = correctObject.point || 5;  // Ambil skor dari objek
+  //               }
+  //             }
+            
+  //             questionSummary[typeId].totalQuestions += 1;
+  //             if (userAnswer !== null && userAnswer !== undefined) {
+  //               questionSummary[typeId].totalCorrect += isCorrect ? 1 : 0;
+  //               questionSummary[typeId].totalIncorrect += isCorrect ? 0 : 1;
+  //               questionSummary[typeId].totalScore += points;
+  //             } else {
+  //               questionSummary[typeId].totalUnanswered += 1;
+  //             }
+  //           });
+            
+                      
+  //         });
+
+  //         return {
+  //           name: User_info?.name ?? "Anonymous",
+  //           timeRemaining,
+  //           passingGrade: Object.values(questionSummary).map((summary) => ({
+  //             type: summary.typeName,
+  //             passingGrade: `${summary.totalScore}/${
+  //               passingGrades[summary.typeName] || 0
+  //             }`,
+  //           })),
+  //           questionsAnswered: Object.values(questionSummary).map(
+  //             (summary) => ({
+  //               type: summary.typeName,
+  //               answered: `${summary.totalCorrect}/${summary.totalQuestions}`,
+  //             })
+  //           ),
+  //         };
+  //       })
+  //     );
+
+  //     const pagination = generatePagination(
+  //       totalCount,
+  //       page,
+  //       limit,
+  //       "/user/live/mentoring/tryout/get"
+  //     );
+
+  //     res.status(200).json({
+  //       code: 200,
+  //       message: "Success get live monitoring scoring",
+  //       scheduleTitle: schedule.title,
+  //       tryoutTitle: schedule.Package_tryout?.title,
+  //       data: formattedParticipants,
+  //       pagination: pagination,
+  //     });
+  //   } catch (error) {
+  //     console.error(error);
+  //     res.status(500).json({
+  //       code: 500,
+  //       message: "Internal server error",
+  //       error: error.message,
+  //     });
+  //   }
+  // },
+
   getLiveMonitoringScoring: async (req, res) => {
     try {
       const { schedule_id } = req.query;
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
-
+      const offset = (page - 1) * limit;
+  
       if (!schedule_id) {
         return res.status(200).json({
           code: 200,
@@ -424,7 +618,7 @@ module.exports = {
           data: null,
         });
       }
-
+  
       const schedule = await Schedule.findOne({
         where: { id: schedule_id },
         attributes: ["id", "title", "packagetryout_id"],
@@ -436,32 +630,38 @@ module.exports = {
           },
         ],
       });
-
+  
       if (!schedule) {
         return res.status(404).json({
           code: 404,
           message: "Schedule not found or Package is not an event",
         });
       }
-
+  
       const tryoutId = schedule.packagetryout_id;
-
-      //get semua jenis soal (TWK, TIU, TKP) dari database
+  
       const typeQuestions = await Type_question.findAll({
         attributes: ["id", "name"],
       });
-
+  
       const defaultQuestionTypes = typeQuestions.map((type) => ({
         id: type.id,
         name: type.name,
       }));
-
+  
       const passingGrades = {
         TWK: 65,
         TIU: 80,
         TKP: 166,
       };
-
+  
+      // Hitung total peserta untuk pagination
+      const totalCount = await Question_form_num.count({
+        where: {
+          packagetryout_id: tryoutId,
+        },
+      });
+  
       const participants = await Question_form_num.findAll({
         where: {
           packagetryout_id: tryoutId,
@@ -473,34 +673,32 @@ module.exports = {
           },
         ],
         limit,
-        offset: (page - 1) * limit,
+        offset,
       });
-
+  
       if (!participants.length) {
         return res.status(404).json({
           code: 404,
           message: "No participants found",
         });
       }
-
+  
       const currentTime = new Date();
       const formattedParticipants = await Promise.all(
         participants.map(async (participant) => {
           const { User_info, start_time, end_time } = participant;
-
+  
           const endTime = new Date(end_time);
           const timeRemainingMs = endTime - currentTime;
           const timeRemaining =
             timeRemainingMs > 0
               ? new Date(timeRemainingMs).toISOString().substr(11, 8)
               : "00:00:00";
-
-          //gett jawaban peserta
+  
           const answers = await Question_form_input.findAll({
             where: { questionformnum_id: participant.id },
           });
-
-          //get semua soal yang tersedia di tryout
+  
           const bankPackages = await Bank_package.findAll({
             where: { packagetryout_id: tryoutId },
             include: [
@@ -519,10 +717,9 @@ module.exports = {
               },
             ],
           });
-
+  
           const questionSummary = {};
-
-          //inisialisasi semua tipe soal dengan nilai 0
+  
           defaultQuestionTypes.forEach(({ id, name }) => {
             questionSummary[id] = {
               typeName: name,
@@ -533,19 +730,19 @@ module.exports = {
               totalScore: 0,
             };
           });
-
+  
           const userAnswers = {};
           answers.forEach((answer) => {
             userAnswers[answer.questionform_id] = answer.data;
           });
-
+  
           bankPackages.forEach((bankPackage) => {
             const { Bank_soal } = bankPackage;
             const typeId = Bank_soal?.Type_question?.id;
             const typeName = Bank_soal?.Type_question?.name;
-
+  
             if (!typeId || !typeName) return;
-
+  
             if (!questionSummary[typeId]) {
               questionSummary[typeId] = {
                 typeName: typeName,
@@ -556,82 +753,38 @@ module.exports = {
                 totalScore: 0,
               };
             }
-
-            // Bank_soal.Question_forms.forEach((questionForm) => {
-            //   const correctAnswer = questionForm.correct_answer;
-            //   const userAnswer = userAnswers[questionForm.id];
-            //   let isCorrect = false;
-            //   let points = 0;
-
-            //   if (
-            //     typeof correctAnswer === "string" ||
-            //     typeof correctAnswer === "number"
-            //   ) {
-            //     isCorrect = String(correctAnswer) === String(userAnswer);
-            //     points = isCorrect ? 5 : 0;
-            //   } else if (Array.isArray(correctAnswer)) {
-            //     const correctObject = correctAnswer.find(
-            //       (item) => String(item.id) === String(userAnswer)
-            //     );
-            //     if (correctObject) {
-            //       isCorrect = true;
-            //       points = correctObject.point || 0;
-            //     }
-            //   }
-
-            //   questionSummary[typeId].totalQuestions += 1;
-
-            //   if (userAnswer !== null && userAnswer !== undefined) {
-            //     if (isCorrect) {
-            //       questionSummary[typeId].totalCorrect += 1;
-            //       questionSummary[typeId].totalScore += points;
-            //     } else {
-            //       questionSummary[typeId].totalIncorrect += 1;
-            //     }
-            //   } else {
-            //     questionSummary[typeId].totalUnanswered += 1;
-            //   }
-            // });
-
+  
             Bank_soal.Question_forms.forEach((questionForm) => {
               const correctAnswer = questionForm.correct_answer;
               const userAnswer = userAnswers[questionForm.id];
               let isCorrect = false;
               let points = 0;
-            
-              // Perbandingan jika jawaban benar adalah string atau angka
+  
               if (typeof correctAnswer === "string" || typeof correctAnswer === "number") {
                 isCorrect = String(correctAnswer) === String(userAnswer);
                 points = isCorrect ? 5 : 0;
-              } 
-              
-              // Perbandingan jika jawaban benar adalah array (contoh: [{id: "A", point: 5}])
-              else if (Array.isArray(correctAnswer)) {
+              } else if (Array.isArray(correctAnswer)) {
                 const correctObject = correctAnswer.find(
                   (item) => String(item.id) === String(userAnswer)
                 );
-            
+  
                 if (correctObject) {
                   isCorrect = true;
-                  points = correctObject.point || 5;  // Ambil skor dari objek
+                  points = correctObject.point || 5;
                 }
               }
-            
-              // Jika jawaban peserta ada (terlepas benar/salah), hitung sebagai answered
+  
               questionSummary[typeId].totalQuestions += 1;
               if (userAnswer !== null && userAnswer !== undefined) {
                 questionSummary[typeId].totalCorrect += isCorrect ? 1 : 0;
                 questionSummary[typeId].totalIncorrect += isCorrect ? 0 : 1;
                 questionSummary[typeId].totalScore += points;
               } else {
-                // Jika tidak menjawab, hitung sebagai unanswered
                 questionSummary[typeId].totalUnanswered += 1;
               }
             });
-            
-                      
           });
-
+  
           return {
             name: User_info?.name ?? "Anonymous",
             timeRemaining,
@@ -650,13 +803,21 @@ module.exports = {
           };
         })
       );
-
+  
+      const pagination = generatePagination(
+        totalCount,
+        page,
+        limit,
+        "/user/live/mentoring/tryout/get"
+      );
+  
       res.status(200).json({
         code: 200,
         message: "Success get live monitoring scoring",
         scheduleTitle: schedule.title,
         tryoutTitle: schedule.Package_tryout?.title,
         data: formattedParticipants,
+        pagination: pagination,
       });
     } catch (error) {
       console.error(error);
@@ -667,7 +828,7 @@ module.exports = {
       });
     }
   },
-
+  
   //get history tryout monitoring
   getHistoryMonitoring: async (req, res) => {
     try {
@@ -722,5 +883,341 @@ module.exports = {
       });
     }
   },
+
+  getPDFHistory: async (req, res) => {  
+    try {  
+        let package = await Package_tryout.findOne({  
+            where: { id: req.params.packagetryout_id },  
+            attributes: ['id', 'title'],  
+        });  
+  
+        if (!package) {  
+            return res.status(404).send('Data tidak ditemukan');  
+        }  
+  
+        const packagetryout_id = req.params.packagetryout_id ?? null;  
+
+        const apiURL = `${process.env.SERVER_URL}/user/data/event/${packagetryout_id}`;  
+          
+        let usersData = [];  
+
+        try {  
+            const apiResponse = await axios.get(apiURL);  
+            if (apiResponse.data && apiResponse.data.data) {  
+                usersData = apiResponse.data.data;
+            }  
+        } catch (err) {  
+            console.error('Error fetching data from API:', err.message);  
+            return res.status(500).send('Error fetching data from API');  
+        }  
+  
+        const templatePath = path.resolve(__dirname, '../views/history_event_template.html');  
+        let htmlContent = fs.readFileSync(templatePath, 'utf8');  
+
+        const tanggalInfo = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });  
+        const tahunInfo = new Date().toLocaleDateString('id-ID', { year: 'numeric' });  
+  
+        htmlContent = htmlContent.replace('{{packageName}}', package?.title ?? 'Tidak Ditemukan');  
+        htmlContent = htmlContent.replace('{{tahunInfo}}', tahunInfo);  
+        htmlContent = htmlContent.replace('{{tanggalInfo}}', tanggalInfo);  
+ 
+        let userRows = '';  
+
+        usersData.forEach((user, index) => {  
+            const status = user.status === 'Lulus' ? 'Lulus' : 'Tidak Lulus';  
+            userRows += `<tr>  
+                <td>${index + 1}</td>  
+                <td>${user.package_name}</td>  
+                <td>${user.name}</td>  
+                <td>${user.skor}</td>  
+                <td>${status}</td>  
+                <td>${user.rank}</td>  
+            </tr>`;  
+        });  
+
+        htmlContent = htmlContent.replace('{{userRows}}', userRows);  
+  
+        const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });  
+        const page = await browser.newPage();  
+        await page.setContent(htmlContent, { waitUntil: 'networkidle0' });  
+
+        const pdfBuffer = await page.pdf({
+            format: 'A4',
+            landscape: true,
+            displayHeaderFooter: true,
+            headerTemplate: `
+                <div style="font-size:15px; font-family:Arial, sans-serif; width:100%; text-align:center; padding-top:10px;">
+                    <h3 style="margin:0;">Riwayat Event Tryout</h3>
+                    <div style="margin-top:5px;">Tanggal: ${tanggalInfo}</div>
+                </div>
+            `,
+            footerTemplate: `
+                <div style="font-size:8px; font-family:Arial, sans-serif; width:100%; text-align:right; margin-right:10px;">
+                    Halaman <span class="pageNumber"></span> dari <span class="totalPages"></span>
+                </div>
+            `,
+            margin: {
+                top: "90px", // Ruang untuk header
+                bottom: "50px", // Ruang untuk footer
+                left: "20px",
+                right: "20px",
+            },
+        });
+        await browser.close();  
+  
+        // Create a filename for the PDF  
+        const currentDate = new Date().toISOString().replace(/:/g, '-');  
+        const filename = `laporan-event-${currentDate}.pdf`;  
+  
+        // Send the PDF as a response  
+        res.setHeader('Content-disposition', `attachment; filename="${filename}"`);  
+        res.setHeader('Content-type', 'application/pdf');  
+        res.end(pdfBuffer);  
+    } catch (err) {  
+        console.error('Error generating PDF:', err);  
+        res.status(500).json({  
+            message: 'Internal Server Error',  
+            error: err.message  
+        });  
+    }  
+  },
+
+  getDataForPDF: async (req, res) => {  
+    try {  
+        const { packagetryout_id } = req.params;  
+        
+        if (!packagetryout_id) {  
+            return res.status(400).json({  
+                status: 400,  
+                message: "packagetryout_id is required",  
+            });  
+        }  
+  
+        const WhereClause = {  
+            packagetryout_id: packagetryout_id,  
+        };  
+  
+        const [histories, totalCount] = await Promise.all([  
+            Question_form_num.findAll({  
+                where: WhereClause,  
+                include: [  
+                    {  
+                        model: Package_tryout,  
+                        attributes: ['id', 'title', 'slug', 'description', 'duration', 'price'],  
+                        include: [  
+                            {  
+                                model: Bank_package,  
+                                attributes: ['id', 'packagetryout_id', 'banksoal_id'],  
+                                include: [  
+                                    {  
+                                        model: Bank_soal,  
+                                        attributes: ['id', 'title', 'typequestion_id'],  
+                                        include: [  
+                                            {  
+                                                model: Type_question,  
+                                                attributes: ['id', 'name'],  
+                                            },  
+                                            {  
+                                                model: Question_form,  
+                                                attributes: ['id', 'field', 'tipedata', 'datajson', 'correct_answer'],  
+                                            },  
+                                        ],  
+                                    },  
+                                ],  
+                            },  
+                            {  
+                                model: Type_package,  
+                                attributes: ['id', 'name'],  
+                            },  
+                        ],  
+                    },  
+                    {  
+                        model: User_info,  
+                        attributes: ['id', 'name'],  
+                    },  
+                ],  
+                order: [['createdAt', 'DESC']],  
+            }),  
+            Question_form_num.count({  
+                where: WhereClause,  
+                include: [  
+                    {  
+                        model: Package_tryout,  
+                        include: [  
+                            {  
+                                model: Type_package,  
+                            },  
+                        ],  
+                    },  
+                    {  
+                        model: User_info,  
+                    },  
+                ],  
+            }),  
+        ]);  
+  
+        const scoreMinimums = {  
+            'TWK': 65,  
+            'TIU': 80,  
+            'TKP': 166,  
+        };  
+  
+        const formattedData = await Promise.all(histories.map(async (data) => {  
+            if (!data.Package_tryout) {  
+                return {  
+                    id: data.id,  
+                    message: 'Package tryout data not found',  
+                };  
+            }  
+  
+            // Get user answers  
+            const answers = await Question_form_input.findAll({  
+                where: { questionformnum_id: data.id },  
+                attributes: ['questionform_id', 'data'],  
+            });  
+  
+            if (!answers.length) {  
+                return {  
+                    id: data.id,  
+                    title: data.Package_tryout.title,  
+                    slug: data.Package_tryout.slug,  
+                    startTime: moment(data.start_time).format('D MMMM YYYY'),  
+                    endTime: moment(data.end_time).format('D MMMM YYYY'),  
+                    description: data.Package_tryout.description,  
+                    message: 'Belum mengerjakan',  
+                };  
+            }  
+  
+            const userAnswers = {};  
+            answers.forEach((answer) => {  
+                userAnswers[answer.questionform_id] = answer.data;  
+            });  
+  
+            const typeQuestionSummary = [];  
+            data.Package_tryout.Bank_packages.forEach((bankPackage) => {  
+                const bankSoals = Array.isArray(bankPackage.Bank_soal)   
+                    ? bankPackage.Bank_soal   
+                    : [bankPackage.Bank_soal].filter(Boolean);  
+                  
+                bankSoals.forEach((bankSoal) => {  
+                    const typeQuestionId = bankSoal.typequestion_id;  
+                    const typeName = bankSoal.Type_question?.name || 'Unknown';  
+  
+                    let existingSummary = typeQuestionSummary.find(  
+                        (summary) => summary.typeName === typeName  
+                    );  
+  
+                    if (!existingSummary) {  
+                        existingSummary = {  
+                            typeName,  
+                            totalQuestions: 0,  
+                            totalCorrect: 0,  
+                            totalIncorrect: 0,  
+                            totalUnanswered: 0,  
+                            totalScore: 0,  
+                        };  
+                        typeQuestionSummary.push(existingSummary);  
+                    }  
+  
+                    bankSoal.Question_forms.forEach((questionForm) => {  
+                        const correctAnswer = questionForm.correct_answer;  
+                        const userAnswer = userAnswers[questionForm.id];  
+  
+                        let isCorrect = false;  
+                        let points = 0;  
+  
+                        if (typeof correctAnswer === 'string' || typeof correctAnswer === 'number') {  
+                            isCorrect = String(correctAnswer) === String(userAnswer);  
+                            points = isCorrect ? 5 : 0;  
+                        } else if (Array.isArray(correctAnswer)) {  
+                            const correctObject = correctAnswer.find(  
+                                (item) => String(item.id) === String(userAnswer)  
+                            );  
+                            if (correctObject) {  
+                                isCorrect = true;  
+                                points = correctObject.point || 0;  
+                            }  
+                        }  
+  
+                        existingSummary.totalQuestions += 1;  
+  
+                        if (userAnswer !== null && userAnswer !== undefined) {  
+                            if (isCorrect) {  
+                                existingSummary.totalCorrect += 1;  
+                                existingSummary.totalScore += points;  
+                            } else {  
+                                existingSummary.totalIncorrect += 1;  
+                            }  
+                        } else {  
+                            existingSummary.totalUnanswered += 1;  
+                        }  
+                    });  
+                });  
+            });  
+  
+            let isLolos = "Lulus";  
+            typeQuestionSummary.forEach((summary) => {  
+                const requiredScore = scoreMinimums[summary.typeName] ?? 0;  
+                if (summary.totalScore < requiredScore) {  
+                    summary.status = 'Tidak Lulus';  
+                    isLolos = "Tidak Lulus";  
+                } else {  
+                    summary.status = 'Lulus';  
+                }  
+            });  
+  
+            const startTime = new Date(data.start_time);  
+            const endTime = new Date(data.end_time);  
+            const durationMs = endTime - startTime;  
+            const durationFormatted = moment.utc(durationMs).format("HH:mm:ss");  
+  
+            return {  
+                id: data.id,  
+                userinfo_id: data.userinfo_id,  
+                name: data.User_info?.name,  
+                skor: parseInt(data.skor),  
+                sertifikat: data.sertifikat,  
+                status: isLolos,  
+                duration: durationFormatted,  
+                packagetryout_id: data?.packagetryout_id,  
+                package_name: data?.Package_tryout ? data?.Package_tryout?.title : null,  
+                typepackage_id:  
+                    data?.Package_tryout && data?.Package_tryout?.Type_package  
+                        ? data?.Package_tryout?.Type_package.id  
+                        : null,  
+                typepackage_name:  
+                    data?.Package_tryout && data?.Package_tryout?.Type_package  
+                        ? data?.Package_tryout?.Type_package.name  
+                        : null,  
+                createdAt: data?.createdAt,  
+                updatedAt: data?.updatedAt,  
+                typeQuestionSummary,  
+            };  
+        }));  
+  
+        // Sort data by score in descending order  
+        formattedData.sort((a, b) => b.skor - a.skor);  
+  
+        // Assign ranking to data  
+        formattedData.forEach((data, index) => {  
+            data.rank = index + 1;  // Ranking starts from 1  
+        });  
+  
+        res.status(200).json({  
+            status: 200,  
+            message: 'Success get details for package tryout',  
+            data: formattedData
+        });  
+    } catch (err) {  
+        console.error(err);  
+        res.status(500).json({  
+            status: 500,  
+            message: 'Internal server error',  
+            error: err.message,  
+        });  
+    }  
+  },
+
+
   
 };
