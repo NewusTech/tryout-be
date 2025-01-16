@@ -92,7 +92,7 @@ module.exports = {
 
         const newAttempt = latestSession ? latestSession.attempt + 1 : 1;
         const startTime = now;
-        const endTime = moment(now, 'YYYY-MM-DD HH:mm:ss').add(100, 'minutes').format('YYYY-MM-DD HH:mm:ss');
+        const endTime = moment(now, 'YYYY-MM-DD HH:mm:ss').add(90, 'minutes').format('YYYY-MM-DD HH:mm:ss');
 
         const newSession = await Question_form_num.create({
             userinfo_id,
