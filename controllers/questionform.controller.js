@@ -534,8 +534,6 @@ module.exports = {
       });
     }
   },
-  
-  
 
   //mendapatkan semua data question form
   getQuestionForm: async (req, res) => {
@@ -1339,6 +1337,7 @@ module.exports = {
       });
     }
   },
+  
   //export data bank soal
   exportBankSoal: async (req, res) => {
     try {
