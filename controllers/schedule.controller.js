@@ -984,7 +984,10 @@ module.exports = {
 
   getDataForPDF: async (req, res) => {  
     try {  
-        const { packagetryout_id } = req.params;  
+        const { packagetryout_id } = req.params;
+        // const page = parseInt(req.query.page) || 1;     
+        // const limit = parseInt(req.query.limit) || 10;  
+        // const offset = (page - 1) * limit;
         
         if (!packagetryout_id) {  
             return res.status(400).json({  
@@ -1037,8 +1040,8 @@ module.exports = {
                   },      
               ],      
               order: [['createdAt', 'DESC']],      
-              limit: null,
-              offset: null,
+              // limit: null,
+              // offset: null,
           }),      
           Question_form_num.count({      
               where: WhereClause,      
@@ -1196,22 +1199,22 @@ module.exports = {
           data.rank = index + 1;      
       });      
    
-      const paginatedData = finalData.slice(offset, offset + limit);      
+      // const paginatedData = finalData.slice(offset, offset + limit);      
  
-      const pagination = {      
-          totalItems: finalData.length, 
-          currentPage: page,      
-          totalPages: Math.ceil(finalData.length / limit),      
-          pageSize: limit,      
-          hasNextPage: offset + limit < finalData.length,      
-          hasPreviousPage: page > 1,      
-      };      
+      // const pagination = {      
+      //     totalItems: finalData.length, 
+      //     currentPage: page,      
+      //     totalPages: Math.ceil(finalData.length / limit),      
+      //     pageSize: limit,      
+      //     hasNextPage: offset + limit < finalData.length,      
+      //     hasPreviousPage: page > 1,      
+      // };      
 
       res.status(200).json({      
           status: 200,      
           message: 'Success get details for package tryout',      
-          data: paginatedData,      
-          pagination: pagination,      
+          data: finalData,      
+          // pagination: pagination,      
       });      
   } catch (err) {      
       console.error(err);      
