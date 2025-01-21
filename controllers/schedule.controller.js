@@ -21,6 +21,8 @@ const { Op, Sequelize, where } = require("sequelize");
 const moment = require("moment-timezone");
 const puppeteer = require('puppeteer');
 const axios = require("axios");
+const Validator = require("fastest-validator");
+const v = new Validator();
 const { generatePagination } = require("../pagination/pagination");
 
 module.exports = {
@@ -74,14 +76,68 @@ module.exports = {
             isEvent: 1,
         });
 
-        return res
-            .status(201)
-            .json(response(201, "Schedule created successfully", schedule));
+        return res.status(201).json(response(201, "Schedule created successfully", schedule));
     } catch (error) {
         console.error(error);
-        return res
-            .status(500)
-            .json(response(500, "Internal server error", error.message));
+        return res.status(500).json(response(500, "Internal server error", error.message));
+    }
+  },
+
+  updateSchedule: async (req, res) => {
+    try {
+      let ScheduleGet = await Schedule.findOne({
+        where: {
+          id: req.params.id,
+        },
+      });
+
+      if (!ScheduleGet) {
+        res.status(404).json(response(404, "Schedule not found"));
+        return;
+      }
+
+      // Membuat schema untuk validasi
+      const schema = {
+        title: { type: "string", optional: true },
+        packagetryout_id: { type: "string", optional: true },
+        start_date: { type: "string", optional: true },
+        end_date: { type: "string", optional: true },
+        start_time: { type: "string", optional: true },
+        end_time: { type: "string", optional: true },
+        isEvent: { type: "number", optional: true },
+      };
+
+      let ScheduleUpdateObj = {
+        title: req.body.title,
+        packagetryout_id: req.body.packagetryout_id,
+        start_date: req.body.start_date,
+        end_date: req.body.end_date,
+        start_time: req.body.start_time,
+        end_time: req.body.end_time,
+        isEvent: 1
+      };
+
+      // Validasi menggunakan module fastest-validator
+      const validate = v.validate(ScheduleUpdateObj, schema);
+      if (validate.length > 0) {
+        res.status(400).json(response(400, "validation failed", validate));
+        return;
+      }
+
+      // Update Schedule
+      await Schedule.update(ScheduleUpdateObj, {
+        where: { id: req.params.id },
+      });
+
+      let ScheduleAfterUpdate = await Schedule.findOne({
+        where: { id: req.params.id },
+      });
+
+      res.status(200).json(response(200, "success update Schedule", ScheduleAfterUpdate)
+        );
+    } catch (err) {
+      res.status(500).json(response(500, "internal server error", err));
+      console.log(err);
     }
   },
 
