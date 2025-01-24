@@ -262,6 +262,229 @@ module.exports = {
     }
   },
 
+  updateMultiQuestionForm: async (req, res) => {  
+    const transaction = await sequelize.transaction();  
+    try {  
+      // Logging untuk memeriksa body request  
+      console.log("Received body:", req.body);  
+      console.log("Received files:", req.files);  
+    
+      const schema = {  
+        field: { type: "string", optional: true },  
+        tipedata: { type: "string", min: 1 },  
+        status: { type: "boolean", optional: true },  
+        correct_answer: { type: "any" }, // Validasi dilakukan manual di bawah  
+        discussion: { type: "string", min: 1 },  
+        datajson: {  
+          type: "array",  
+          items: {  
+            type: "object",  
+            properties: {  
+              id: { type: "number" },  
+              key: { type: "string" }, // URL gambar atau fieldname file  
+            },  
+            required: ["id", "key"],  
+          },  
+          optional: true,  
+        },  
+      };  
+    
+      const bankSoalSchema = {  
+        title: { type: "string", min: 1 },  
+        typequestion_id: { type: "number", optional: true },  
+      };  
+    
+      let banksoal, questions;  
+      try {  
+        banksoal = JSON.parse(req.body.banksoal);  
+        questions = JSON.parse(req.body.questions);  
+      } catch (parseErr) {  
+        console.error("Error parsing JSON:", parseErr);  
+        return res.status(400).json({ status: 400, message: "Invalid JSON format", error: parseErr.message });  
+      }  
+    
+      // Logging untuk memeriksa data yang diparsing  
+      console.log("Parsed banksoal:", banksoal);  
+      console.log("Parsed questions:", questions);  
+
+      if (!questions || !Array.isArray(questions)) {  
+        return res.status(400).json({ status: 400, message: "Request body must contain an array of questions" });  
+      }  
+    
+      let errors = [];  
+      let updatedBankSoal = null;  
+      let updatedQuestions = [];  
+    
+      // Step 1: Update Bank_soal  
+      const bankSoalValidate = v.validate(banksoal, bankSoalSchema);  
+      if (bankSoalValidate.length > 0) {  
+        errors.push({ input: banksoal, errors: bankSoalValidate });  
+      } else {  
+        const bankSoalUpdate = await Bank_soal.update(  
+          { title: banksoal.title, typequestion_id: banksoal.typequestion_id },  
+          { where: { id: req.params.banksoalId }, transaction }  
+        );  
+    
+        if (bankSoalUpdate[0] === 0) {  
+          errors.push({ input: banksoal, errors: ["Bank soal not found."] });  
+        } else {  
+          updatedBankSoal = await Bank_soal.findByPk(req.params.banksoalId, { transaction });  
+        }  
+      }  
+    
+      // Step 2: Process Questions  
+      for (let input of questions) {  
+        if (!input.id) {  
+          errors.push({ input, errors: ["Missing 'id' for question."] });  
+          continue;  
+        }  
+    
+        const question = await Question_form.findByPk(input.id, { transaction });  
+        if (!question) {  
+          errors.push({ input, errors: ["Question not found."] });  
+          continue;  
+        }  
+    
+        console.log("Available files: ", req.files.map((file) => file.fieldname));  
+    
+        let fieldProcessed = input.field || question.field; // Default field as string  
+        const fieldImageFile = req.files.find((f) => f.fieldname === fieldProcessed);  
+    
+        if (fieldImageFile) {  
+          try {  
+            const uploadParams = {  
+              Bucket: process.env.AWS_BUCKET,  
+              Key: `${process.env.PATH_AWS}/questions/${new Date().getTime()}-${fieldImageFile.originalname}`,  
+              Body: fieldImageFile.buffer,  
+              ACL: "public-read",  
+              ContentType: fieldImageFile.mimetype,  
+            };  
+            const command = new PutObjectCommand(uploadParams);  
+            await s3Client.send(command);  
+    
+            fieldProcessed = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;  
+          } catch (error) {  
+            console.error("Failed to upload field image:", error);  
+            errors.push({ input, errors: ["Failed to upload field image to AWS."] });  
+            continue;  
+          }  
+        }  
+    
+        let discussionProcessed = input.discussion || question.discussion;   
+        const discussionImageFile = req.files.find((f) => f.fieldname === discussionProcessed);  
+    
+        if (discussionImageFile) {  
+          try {  
+            const uploadParams = {  
+              Bucket: process.env.AWS_BUCKET,  
+              Key: `${process.env.PATH_AWS}/discussions/${new Date().getTime()}-${discussionImageFile.originalname}`,  
+              Body: discussionImageFile.buffer,  
+              ACL: "public-read",  
+              ContentType: discussionImageFile.mimetype,  
+            };  
+            const command = new PutObjectCommand(uploadParams);  
+            await s3Client.send(command);  
+    
+            discussionProcessed = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;  
+          } catch (error) {  
+            console.error("Failed to upload discussion image:", error);  
+            errors.push({ input, errors: ["Failed to upload discussion image to AWS."] });  
+            continue;  
+          }  
+        }  
+    
+        let correctAnswerProcessed = null;  
+        if (Array.isArray(input.correct_answer)) {  
+          correctAnswerProcessed = input.correct_answer.map((answer) => ({  
+            id: answer.id,  
+            key: answer.key,  
+            point: answer.point || 0,  
+          }));  
+        } else if (typeof input.correct_answer === "number") {  
+          correctAnswerProcessed = input.correct_answer;  
+        } else {  
+          errors.push({ input, errors: ["Invalid format for correct_answer."] });  
+          continue;  
+        }  
+    
+        let datajsonProcessed = [];  
+        if (input.datajson && Array.isArray(input.datajson)) {  
+          for (let item of input.datajson) {  
+            if (req.files && item.key.startsWith("image_")) {  
+              // Jika key adalah "image_X", cari file dengan fieldname yang sesuai  
+              const file = req.files.find((f) => f.fieldname === item.key);  
+              if (file) {  
+                try {  
+                  const uploadParams = {  
+                    Bucket: process.env.AWS_BUCKET,  
+                    Key: `${process.env.PATH_AWS}/options/${new Date().getTime()}-${file.originalname}`,  
+                    Body: file.buffer,  
+                    ACL: "public-read",  
+                    ContentType: file.mimetype,  
+                  };  
+                  const command = new PutObjectCommand(uploadParams);  
+                  await s3Client.send(command);  
+    
+                  const imageUrl = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;  
+                  datajsonProcessed.push({ id: item.id, key: imageUrl });  
+                } catch (error) {  
+                  errors.push({ input, errors: [`Failed to upload image for id ${item.id}.`] });  
+                  continue;  
+                }  
+              } else {  
+                // Jika file tidak ditemukan, tambahkan error  
+                errors.push({ input, errors: [`File not found for key: ${item.key}.`] });  
+                continue;  
+              }  
+            } else {  
+              // Jika key adalah string biasa, gunakan langsung  
+              datajsonProcessed.push({ id: item.id, key: item.key });  
+            }  
+          }  
+        }  
+    
+        const questionFormUpdateObj = {  
+          field: fieldProcessed,  
+          tipedata: input.tipedata,  
+          status: input.status !== undefined ? Boolean(input.status) : question.status,  
+          correct_answer: correctAnswerProcessed,  
+          discussion: discussionProcessed, // Gunakan hasil proses discussion  
+          datajson: datajsonProcessed,  
+        };  
+    
+        const validate = v.validate(questionFormUpdateObj, schema);  
+        if (validate.length > 0) {  
+          errors.push({ input, errors: validate });  
+          continue;  
+        }  
+    
+        const questionFormUpdate = await Question_form.update(questionFormUpdateObj, { where: { id: input.id }, transaction });  
+        if (questionFormUpdate[0] === 0) {  
+          errors.push({ input, errors: ["Question update failed."] });  
+          continue;  
+        }  
+    
+        updatedQuestions.push(await Question_form.findByPk(input.id, { transaction }));  
+      }  
+    
+      if (errors.length > 0) {  
+        await transaction.rollback();  
+        return res.status(400).json({ status: 400, message: "Validation failed", errors });  
+      }  
+    
+      await transaction.commit();  
+      res.status(200).json({  
+        status: 200,  
+        message: "Successfully updated bank soal and question forms",  
+        data: { bankSoal: updatedBankSoal, questionForms: updatedQuestions },  
+      });  
+    } catch (err) {  
+      await transaction.rollback();  
+      console.error("Internal server error:", err);  
+      res.status(500).json({ status: 500, message: "Internal server error", error: err.message });  
+    }  
+  },
+
   //mendapatkan bank soal by package
   // getFormByPackage: async (req, res) => {
   //   const { packagetryout_id } = req.params;
@@ -744,111 +967,111 @@ module.exports = {
   },
 
   //mengupdate question form
-  updateMultiQuestionForm: async (req, res) => {
-    const transaction = await sequelize.transaction();
-    try {
-      // Validasi request body
-      if (!req.body || !Array.isArray(req.body.questions)) {
-        return res.status(400).json({
-          status: 400,
-          message: "Request body must contain an array of questions",
-        });
-      }
+  // updateMultiQuestionForm: async (req, res) => {
+  //   const transaction = await sequelize.transaction();
+  //   try {
+  //     // Validasi request body
+  //     if (!req.body || !Array.isArray(req.body.questions)) {
+  //       return res.status(400).json({
+  //         status: 400,
+  //         message: "Request body must contain an array of questions",
+  //       });
+  //     }
 
-      let errors = [];
-      let updatedQuestions = [];
-      let createdQuestions = [];
+  //     let errors = [];
+  //     let updatedQuestions = [];
+  //     let createdQuestions = [];
 
-      // Loop untuk memproses setiap Question_form
-      for (let input of req.body.questions) {
-        if (!input.id) {
-          errors.push({ input, errors: ["ID is required"] });
-          continue;
-        }
+  //     // Loop untuk memproses setiap Question_form
+  //     for (let input of req.body.questions) {
+  //       if (!input.id) {
+  //         errors.push({ input, errors: ["ID is required"] });
+  //         continue;
+  //       }
 
-        // Cek apakah Question_form sudah ada
-        const questionForm = await Question_form.findOne({
-          where: { id: input.id },
-          transaction,
-        });
+  //       // Cek apakah Question_form sudah ada
+  //       const questionForm = await Question_form.findOne({
+  //         where: { id: input.id },
+  //         transaction,
+  //       });
 
-        if (!questionForm) {
-          errors.push({ input, errors: ["Question form not found"] });
-          continue;
-        }
+  //       if (!questionForm) {
+  //         errors.push({ input, errors: ["Question form not found"] });
+  //         continue;
+  //       }
 
-        // Update status question form lama ke 0
-        await Question_form.update(
-          { status: 0 },
-          { where: { id: input.id }, transaction }
-        );
+  //       // Update status question form lama ke 0
+  //       await Question_form.update(
+  //         { status: 0 },
+  //         { where: { id: input.id }, transaction }
+  //       );
 
-        // Proses correct_answer
-        let correctAnswerProcessed = null;
-        if (Array.isArray(input.correct_answer)) {
-          correctAnswerProcessed = input.correct_answer.map((answer) => ({
-            id: answer.id,
-            key: answer.key,
-            point: answer.point || 0, // Default point = 0 jika tidak ada
-          }));
-        } else if (typeof input.correct_answer === "number") {
-          correctAnswerProcessed = input.correct_answer;
-        } else {
-          errors.push({
-            input,
-            errors: ["Invalid format for correct_answer."],
-          });
-          continue;
-        }
+  //       // Proses correct_answer
+  //       let correctAnswerProcessed = null;
+  //       if (Array.isArray(input.correct_answer)) {
+  //         correctAnswerProcessed = input.correct_answer.map((answer) => ({
+  //           id: answer.id,
+  //           key: answer.key,
+  //           point: answer.point || 0, // Default point = 0 jika tidak ada
+  //         }));
+  //       } else if (typeof input.correct_answer === "number") {
+  //         correctAnswerProcessed = input.correct_answer;
+  //       } else {
+  //         errors.push({
+  //           input,
+  //           errors: ["Invalid format for correct_answer."],
+  //         });
+  //         continue;
+  //       }
 
-        // Buat objek untuk membuat question form baru
-        const questionFormCreateObj = {
-          field: input.field,
-          tipedata: input.tipedata,
-          status: input.status !== undefined ? Boolean(input.status) : true,
-          correct_answer: correctAnswerProcessed,
-          discussion: input.discussion,
-          datajson: input.datajson || null,
-          banksoal_id: questionForm.banksoal_id, // Mengaitkan dengan bank soal yang sama
-        };
+  //       // Buat objek untuk membuat question form baru
+  //       const questionFormCreateObj = {
+  //         field: input.field,
+  //         tipedata: input.tipedata,
+  //         status: input.status !== undefined ? Boolean(input.status) : true,
+  //         correct_answer: correctAnswerProcessed,
+  //         discussion: input.discussion,
+  //         datajson: input.datajson || null,
+  //         banksoal_id: questionForm.banksoal_id, // Mengaitkan dengan bank soal yang sama
+  //       };
 
-        // Buat Question_form baru
-        const questionFormCreate = await Question_form.create(
-          questionFormCreateObj,
-          { transaction }
-        );
-        createdQuestions.push(questionFormCreate);
-      }
+  //       // Buat Question_form baru
+  //       const questionFormCreate = await Question_form.create(
+  //         questionFormCreateObj,
+  //         { transaction }
+  //       );
+  //       createdQuestions.push(questionFormCreate);
+  //     }
 
-      // Jika ada error pada validasi, rollback transaksi
-      if (errors.length > 0) {
-        await transaction.rollback();
-        return res
-          .status(400)
-          .json({ status: 400, message: "Validation failed", errors });
-      }
+  //     // Jika ada error pada validasi, rollback transaksi
+  //     if (errors.length > 0) {
+  //       await transaction.rollback();
+  //       return res
+  //         .status(400)
+  //         .json({ status: 400, message: "Validation failed", errors });
+  //     }
 
-      // Commit transaksi jika semuanya berhasil
-      await transaction.commit();
+  //     // Commit transaksi jika semuanya berhasil
+  //     await transaction.commit();
 
-      return res.status(200).json({
-        status: 200,
-        message: "Successfully updated and created new question forms",
-        data: {
-          updatedQuestions,
-          createdQuestions,
-        },
-      });
-    } catch (err) {
-      await transaction.rollback();
-      console.error("Error updating question forms:", err);
-      return res.status(500).json({
-        status: 500,
-        message: "Internal server error",
-        error: err.message,
-      });
-    }
-  },
+  //     return res.status(200).json({
+  //       status: 200,
+  //       message: "Successfully updated and created new question forms",
+  //       data: {
+  //         updatedQuestions,
+  //         createdQuestions,
+  //       },
+  //     });
+  //   } catch (err) {
+  //     await transaction.rollback();
+  //     console.error("Error updating question forms:", err);
+  //     return res.status(500).json({
+  //       status: 500,
+  //       message: "Internal server error",
+  //       error: err.message,
+  //     });
+  //   }
+  // },
 
   //menghapus question form berdasarkan id
   deleteQuestionForm: async (req, res) => {
