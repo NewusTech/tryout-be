@@ -438,7 +438,7 @@ module.exports = {
               }  
             } else {  
               // Jika key adalah string biasa, gunakan langsung  
-              datajsonProcessed.push({ id: item.id, key: item.key });  
+              datajsonProcessed.push({ id: item.id, key: item.key, point: item.point });  
             }  
           }  
         }  
