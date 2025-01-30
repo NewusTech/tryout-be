@@ -351,6 +351,7 @@ module.exports = {
     } catch (err) {
         await transaction.rollback();
         console.error("Error:", err);
+        console.log("Error", err);
         res.status(500).json(response(500, "Internal server error", err.message));
     }
   },
