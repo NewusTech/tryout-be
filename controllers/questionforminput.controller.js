@@ -176,31 +176,215 @@ module.exports = {
       }
   },
 
-  //user input jawaban
+  //user input jawaban existing
+  // inputFormQuestion: async (req, res) => {
+  //   const transaction = await sequelize.transaction();
+  //   try {
+
+  //       const idpackage = req.params.idpackage;
+  //       const iduser = req.user.role === "User" ? req.user.userId : req.body.userId;
+
+  //       if (!iduser) {
+  //           return res.status(403).json(response(403, "User must be logged in", []));
+  //       }
+
+  //       const { datainput } = req.body;
+
+  //       if (!datainput || !Array.isArray(datainput)) {
+  //           throw new Error("Invalid input data format");
+  //       }
+
+  //       // Tambahkan validasi untuk sesi aktif
+  //       const latestSession = await Question_form_num.findOne({
+  //           where: { userinfo_id: iduser, packagetryout_id: idpackage },
+  //           order: [['attempt', 'DESC']],
+  //       });
+
+  //       if (!latestSession || new Date() > new Date(latestSession.end_time) || latestSession.status === 0) {
+  //           return res.status(403).json(
+  //               response(403, "Session is not active or has expired. Please start a new session.", [])
+  //           );
+  //       }
+
+  //       const idforminput = latestSession.id;
+
+  //       // Ambil semua jawaban pengguna sebelumnya
+  //       const previousAnswers = await Question_form_input.findAll({
+  //           where: { questionformnum_id: idforminput },
+  //       });
+
+  //       const scoreMapping = new Map();
+  //       const questionIds = datainput.map((item) => item.questionform_id);
+
+  //       const questions = await Question_form.findAll({
+  //           where: { id: { [Op.in]: questionIds } },
+  //       });
+
+  //       questions.forEach((q) => {
+  //           scoreMapping.set(q.id, q.correct_answer);
+  //       });
+
+  //       let totalPoints = parseFloat(latestSession.skor || 0);
+
+  //       for (let item of datainput) {
+  //           const { questionform_id, data } = item;
+
+  //           const previousAnswer = previousAnswers.find(
+  //               (answer) => answer.questionform_id === questionform_id
+  //           );
+
+  //           const correctAnswer = scoreMapping.get(questionform_id);
+
+  //           console.log(`Processing Question ID: ${questionform_id}`);
+  //           console.log(`User's New Answer: ${data}`);
+  //           console.log(`Correct Answer:`, correctAnswer);
+
+  //           if (Array.isArray(correctAnswer)) {
+  //               const matchedPrevious = correctAnswer.find(
+  //                   (correct) => Number(correct.id) === Number(previousAnswer?.data)
+  //               );
+
+  //               const matchedNew = correctAnswer.find(
+  //                   (correct) => Number(correct.id) === Number(data)
+  //               );
+
+  //               if (matchedPrevious) {
+  //                   console.log(`Removing Points for Previous Answer: ${matchedPrevious.point || 0}`);
+  //                   totalPoints -= matchedPrevious.point || 0;
+  //               }
+
+  //               if (matchedNew) {
+  //                   console.log(`Adding Points for New Answer: ${matchedNew.point || 0}`);
+  //                   totalPoints += matchedNew.point || 0;
+  //               }
+  //           } else if (!Array.isArray(correctAnswer)) {
+  //               if (Number(correctAnswer) === Number(previousAnswer?.data)) {
+  //                   console.log(`Removing 5 points for previous correct single answer.`);
+  //                   totalPoints -= 5; 
+  //               }
+  //               if (Number(correctAnswer) === Number(data)) {
+  //                   console.log(`Adding 5 points for new correct single answer.`);
+  //                   totalPoints += 5;
+  //               }
+  //           }
+
+  //           // Update atau buat jawaban baru
+  //           if (previousAnswer) {
+  //               await Question_form_input.update(
+  //                   { data },
+  //                   {
+  //                       where: {
+  //                           id: previousAnswer.id,
+  //                       },
+  //                       transaction,
+  //                   }
+  //               );
+  //           } else {
+  //               await Question_form_input.create(
+  //                   {
+  //                       questionformnum_id: idforminput,
+  //                       questionform_id,
+  //                       data,
+  //                       packagetryout_id: idpackage,
+  //                   },
+  //                   { transaction }
+  //               );
+  //           }
+  //       }
+
+  //       console.log("Final Total Points:", totalPoints);
+
+  //       // Update skor di Question_form_num
+  //       await Question_form_num.update(
+  //           { skor: totalPoints.toFixed(2) },
+  //           { where: { id: idforminput }, transaction }
+  //       );
+
+  //       await transaction.commit();
+
+  //       res.status(200).json(
+  //           response(200, "Success input answer", {
+  //               score: totalPoints.toFixed(2),
+  //               inputCount: datainput.length,
+  //           })
+  //       );
+
+  //       // Proses generate sertifikat
+  //       setTimeout(async () => {
+  //         try {
+  //           const apiURL = `${process.env.SERVER_URL}/user/sertifikat/${idpackage}/${idforminput}`;
+
+  //             const responsePDF = await axios.get(apiURL, {
+  //                 responseType: "arraybuffer",
+  //                 headers: { "Cache-Control": "no-cache" },
+  //             });
+
+  //             const pdfBuffer = responsePDF.data;
+
+  //             const timestamp = new Date().getTime();
+  //             const uniqueFileName = `${timestamp}-${idforminput}.pdf`;
+
+  //             const uploadParams = {
+  //                 Bucket: process.env.AWS_BUCKET,
+  //                 Key: `${process.env.PATH_AWS}/sertifikat/${uniqueFileName}`,
+  //                 Body: pdfBuffer,
+  //                 ACL: "public-read",
+  //                 ContentType: "application/pdf",
+  //             };
+
+  //             const command = new PutObjectCommand(uploadParams);
+  //             await s3Client.send(command);
+
+  //             const sertifikatPath = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
+
+  //             await Question_form_num.update(
+  //                 { sertifikat: sertifikatPath },
+  //                 { where: { id: idforminput } }
+  //             );
+
+  //             console.log("Sertifikat berhasil dibuat dan diunggah:", sertifikatPath);
+  //         } catch (error) {
+  //             console.error("Error fetching or uploading PDF:", error);
+  //         }
+  //     }, 5000);
+
+  //   } catch (err) {
+  //       await transaction.rollback();
+  //       console.error("Error:", err);
+  //       console.log("Error", err);
+  //       res.status(500).json(response(500, "Internal server error", err.message));
+  //   }
+  // },
+
   inputFormQuestion: async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
-
         const idpackage = req.params.idpackage;
         const iduser = req.user.role === "User" ? req.user.userId : req.body.userId;
 
+        // Validasi: User harus login
         if (!iduser) {
+            await transaction.rollback();
             return res.status(403).json(response(403, "User must be logged in", []));
         }
 
         const { datainput } = req.body;
 
+        // Validasi: Data input harus berupa array
         if (!datainput || !Array.isArray(datainput)) {
-            throw new Error("Invalid input data format");
+            await transaction.rollback();
+            return res.status(400).json(response(400, "Invalid input data format", []));
         }
 
-        // Tambahkan validasi untuk sesi aktif
+        // Cari sesi aktif terbaru
         const latestSession = await Question_form_num.findOne({
             where: { userinfo_id: iduser, packagetryout_id: idpackage },
             order: [['attempt', 'DESC']],
         });
 
+        // Validasi: Sesi harus aktif
         if (!latestSession || new Date() > new Date(latestSession.end_time) || latestSession.status === 0) {
+            await transaction.rollback();
             return res.status(403).json(
                 response(403, "Session is not active or has expired. Please start a new session.", [])
             );
@@ -208,11 +392,12 @@ module.exports = {
 
         const idforminput = latestSession.id;
 
-        // Ambil semua jawaban pengguna sebelumnya
+        // Ambil semua jawaban sebelumnya
         const previousAnswers = await Question_form_input.findAll({
             where: { questionformnum_id: idforminput },
         });
 
+        // Mapping jawaban yang benar
         const scoreMapping = new Map();
         const questionIds = datainput.map((item) => item.questionform_id);
 
@@ -226,6 +411,7 @@ module.exports = {
 
         let totalPoints = parseFloat(latestSession.skor || 0);
 
+        // Proses setiap jawaban
         for (let item of datainput) {
             const { questionform_id, data } = item;
 
@@ -237,7 +423,7 @@ module.exports = {
 
             console.log(`Processing Question ID: ${questionform_id}`);
             console.log(`User's New Answer: ${data}`);
-            console.log(`Correct Answer:`, correctAnswer);
+            console.log('Correct Answer:', correctAnswer);
 
             if (Array.isArray(correctAnswer)) {
                 const matchedPrevious = correctAnswer.find(
@@ -259,11 +445,11 @@ module.exports = {
                 }
             } else if (!Array.isArray(correctAnswer)) {
                 if (Number(correctAnswer) === Number(previousAnswer?.data)) {
-                    console.log(`Removing 5 points for previous correct single answer.`);
-                    totalPoints -= 5; 
+                    console.log('Removing 5 points for previous correct single answer.');
+                    totalPoints -= 5;
                 }
                 if (Number(correctAnswer) === Number(data)) {
-                    console.log(`Adding 5 points for new correct single answer.`);
+                    console.log('Adding 5 points for new correct single answer.');
                     totalPoints += 5;
                 }
             }
@@ -273,9 +459,7 @@ module.exports = {
                 await Question_form_input.update(
                     { data },
                     {
-                        where: {
-                            id: previousAnswer.id,
-                        },
+                        where: { id: previousAnswer.id },
                         transaction,
                     }
                 );
@@ -294,14 +478,16 @@ module.exports = {
 
         console.log("Final Total Points:", totalPoints);
 
-        // Update skor di Question_form_num
+        // Update skor di database
         await Question_form_num.update(
             { skor: totalPoints.toFixed(2) },
             { where: { id: idforminput }, transaction }
         );
 
+        // Commit transaksi
         await transaction.commit();
 
+        // Kirim respons ke client
         res.status(200).json(
             response(200, "Success input answer", {
                 score: totalPoints.toFixed(2),
@@ -309,44 +495,42 @@ module.exports = {
             })
         );
 
-        // Proses generate sertifikat
+        // Proses pembuatan sertifikat di background
         setTimeout(async () => {
-          try {
-            const apiURL = `${process.env.SERVER_URL}/user/sertifikat/${idpackage}/${idforminput}`;
+            try {
+                const apiURL = `${process.env.SERVER_URL}/user/sertifikat/${idpackage}/${idforminput}`;
+                const responsePDF = await axios.get(apiURL, {
+                    responseType: "arraybuffer",
+                    headers: { "Cache-Control": "no-cache" },
+                });
 
-              const responsePDF = await axios.get(apiURL, {
-                  responseType: "arraybuffer",
-                  headers: { "Cache-Control": "no-cache" },
-              });
+                const pdfBuffer = responsePDF.data;
+                const timestamp = new Date().getTime();
+                const uniqueFileName = `${timestamp}-${idforminput}.pdf`;
 
-              const pdfBuffer = responsePDF.data;
+                const uploadParams = {
+                    Bucket: process.env.AWS_BUCKET,
+                    Key: `${process.env.PATH_AWS}/sertifikat/${uniqueFileName}`,
+                    Body: pdfBuffer,
+                    ACL: "public-read",
+                    ContentType: "application/pdf",
+                };
 
-              const timestamp = new Date().getTime();
-              const uniqueFileName = `${timestamp}-${idforminput}.pdf`;
+                const command = new PutObjectCommand(uploadParams);
+                await s3Client.send(command);
 
-              const uploadParams = {
-                  Bucket: process.env.AWS_BUCKET,
-                  Key: `${process.env.PATH_AWS}/sertifikat/${uniqueFileName}`,
-                  Body: pdfBuffer,
-                  ACL: "public-read",
-                  ContentType: "application/pdf",
-              };
+                const sertifikatPath = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
 
-              const command = new PutObjectCommand(uploadParams);
-              await s3Client.send(command);
+                await Question_form_num.update(
+                    { sertifikat: sertifikatPath },
+                    { where: { id: idforminput } }
+                );
 
-              const sertifikatPath = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${uploadParams.Key}`;
-
-              await Question_form_num.update(
-                  { sertifikat: sertifikatPath },
-                  { where: { id: idforminput } }
-              );
-
-              console.log("Sertifikat berhasil dibuat dan diunggah:", sertifikatPath);
-          } catch (error) {
-              console.error("Error fetching or uploading PDF:", error);
-          }
-      }, 5000);
+                console.log("Sertifikat berhasil dibuat dan diunggah:", sertifikatPath);
+            } catch (error) {
+                console.error("Error fetching or uploading PDF:", error);
+            }
+        }, 0); // Timeout 0 untuk menjalankan segera setelah event loop selesai
 
     } catch (err) {
         await transaction.rollback();
@@ -354,7 +538,7 @@ module.exports = {
         console.log("Error", err);
         res.status(500).json(response(500, "Internal server error", err.message));
     }
-  },
+},
 
   //get input form user
   getDetailInputForm: async (req, res) => {
